@@ -51,7 +51,8 @@ def main():
     room.plot("audio_room_layout_2d.png", show=False, view='2d')
     
     # 5. Setup Renderer
-    renderer = AudioRenderer(room, fs=FS)
+    # Standard conditions: 20C, 50% Humidity
+    renderer = AudioRenderer(room, fs=FS, temperature=20.0, humidity=50.0)
     
     # Assign Audio Files
     print("Assigning audio files...")
@@ -64,7 +65,7 @@ def main():
     # 6. Render
     print("Starting rendering pipeline...")
     # This will run ray tracing for each source and mix the results
-    outputs = renderer.render(n_rays=30000, max_hops=40, rir_duration=2.0)
+    outputs, paths_data = renderer.render(n_rays=30000, max_hops=40, rir_duration=2.0, record_paths=True)
     
     # 7. Save Result
     mixed_audio = outputs["Microphone"]

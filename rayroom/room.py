@@ -85,18 +85,30 @@ class Room:
         ]
         
         walls = []
-        # Floor (normal up) 0-3-2-1
-        walls.append(Wall("Floor", [v[0], v[3], v[2], v[1]], mats["floor"]))
-        # Ceiling (normal down) 4-5-6-7
-        walls.append(Wall("Ceiling", [v[4], v[5], v[6], v[7]], mats["ceiling"]))
-        # Front (y=0) 0-1-5-4 -> Normal pointing inside (positive y)
-        walls.append(Wall("Front", [v[0], v[1], v[5], v[4]], mats["front"]))
-        # Back (y=d) 2-3-7-6 -> Normal pointing inside (negative y)
-        walls.append(Wall("Back", [v[2], v[3], v[7], v[6]], mats["back"]))
-        # Left (x=0) 3-0-4-7 -> Normal pointing inside (positive x)
-        walls.append(Wall("Left", [v[3], v[0], v[4], v[7]], mats["left"]))
-        # Right (x=w) 1-2-6-5 -> Normal pointing inside (negative x)
-        walls.append(Wall("Right", [v[1], v[2], v[6], v[5]], mats["right"]))
+        # Floor (normal up) 0-3-2-1 -> Reverse to point IN (Up): 1-2-3-0
+        # Current: 0,3,2,1 -> Normal Down (Out).
+        # Reversed: 1,2,3,0 -> Normal Up (In).
+        walls.append(Wall("Floor", [v[1], v[2], v[3], v[0]], mats["floor"]))
+        
+        # Ceiling (normal down) 4-5-6-7 -> Normal Up (Out).
+        # Reversed: 7,6,5,4 -> Normal Down (In).
+        walls.append(Wall("Ceiling", [v[7], v[6], v[5], v[4]], mats["ceiling"]))
+        
+        # Front (y=0) 0-1-5-4 -> Normal -y (Out).
+        # Reversed: 4,5,1,0 -> Normal +y (In).
+        walls.append(Wall("Front", [v[4], v[5], v[1], v[0]], mats["front"]))
+        
+        # Back (y=d) 2-3-7-6 -> Normal +y (Out).
+        # Reversed: 6,7,3,2 -> Normal -y (In).
+        walls.append(Wall("Back", [v[6], v[7], v[3], v[2]], mats["back"]))
+        
+        # Left (x=0) 3-0-4-7 -> Normal -x (Out).
+        # Reversed: 7,4,0,3 -> Normal +x (In).
+        walls.append(Wall("Left", [v[7], v[4], v[0], v[3]], mats["left"]))
+        
+        # Right (x=w) 1-2-6-5 -> Normal +x (Out).
+        # Reversed: 5,6,2,1 -> Normal -x (In).
+        walls.append(Wall("Right", [v[5], v[6], v[2], v[1]], mats["right"]))
         
         return cls(walls)
 

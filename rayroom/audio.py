@@ -9,12 +9,12 @@ class AudioRenderer:
     Handles the audio rendering pipeline for a Room.
     Manages sources, audio data, ray tracing, RIR generation, convolution, and mixing.
     """
-    def __init__(self, room, fs=44100):
+    def __init__(self, room, fs=44100, temperature=20.0, humidity=50.0):
         self.room = room
         self.fs = fs
         self.source_audios = {} # Map source_obj -> audio_array
         self.source_gains = {} # Map source_obj -> linear gain
-        self._tracer = RayTracer(room)
+        self._tracer = RayTracer(room, temperature=temperature, humidity=humidity)
         
     def set_source_audio(self, source, audio_data, gain=1.0):
         """
@@ -57,15 +57,18 @@ class AudioRenderer:
             
         return data
         
-    def render(self, n_rays=20000, max_hops=50, rir_duration=2.0, verbose=True):
+    def render(self, n_rays=20000, max_hops=50, rir_duration=2.0, verbose=True, record_paths=False):
         """
         Run the full rendering pipeline.
         
         Returns:
-             dict: {receiver_name: mixed_audio_array}
+             tuple: (receiver_outputs, paths_data)
+             receiver_outputs: dict: {receiver_name: mixed_audio_array}
+             paths_data: dict {source_name: list of rays} or None if record_paths=False
         """
         # Initialize outputs for each receiver
         receiver_outputs = {rx.name: None for rx in self.room.receivers}
+        all_paths = {} if record_paths else None
         
         # Iterate over sources that have audio assigned
         # Only render sources that are in the room AND have audio
@@ -92,7 +95,9 @@ class AudioRenderer:
             
             original_sources = self.room.sources
             self.room.sources = [source]
-            self._tracer.run(n_rays=n_rays, max_hops=max_hops) # Prints "Simulating Source..."
+            paths = self._tracer.run(n_rays=n_rays, max_hops=max_hops, record_paths=record_paths) # Prints "Simulating Source..."
+            if record_paths and paths:
+                all_paths.update(paths)
             self.room.sources = original_sources
             
             # 3. For each receiver, generate RIR and Convolve
@@ -132,6 +137,8 @@ class AudioRenderer:
             if audio is not None and np.max(np.abs(audio)) > 0:
                 receiver_outputs[name] = audio / np.max(np.abs(audio))
                 
+        if record_paths:
+            return receiver_outputs, all_paths
         return receiver_outputs
 
 def generate_rir(energy_histogram, fs=44100, duration=None):

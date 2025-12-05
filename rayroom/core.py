@@ -1,22 +1,36 @@
 import numpy as np
 from tqdm import tqdm
 from .geometry import ray_plane_intersection, is_point_in_polygon, reflect_vector, random_direction_hemisphere, normalize
+from .physics import air_absorption_coefficient
 
 C_SOUND = 343.0 # m/s
 
 class RayTracer:
-    def __init__(self, room):
+    def __init__(self, room, temperature=20.0, humidity=50.0):
         self.room = room
+        self.temperature = temperature
+        self.humidity = humidity
+        # Precompute air absorption for a reference frequency (e.g. 1kHz)
+        # Real simulation should handle bands.
+        # For simple energy ray tracing, we approximate broadband decay.
+        self.air_absorption_db_m = air_absorption_coefficient(1000.0, temperature, humidity)
         
-    def run(self, n_rays=10000, max_hops=50, energy_threshold=1e-6):
+    def run(self, n_rays=10000, max_hops=50, energy_threshold=1e-6, record_paths=False):
         """
         Run the simulation.
+        record_paths: If True, returns a list of ray paths (list of list of segments).
         """
+        all_paths = {} if record_paths else None
+        
         for source in self.room.sources:
             print(f"Simulating Source: {source.name}")
-            self._trace_source(source, n_rays, max_hops, energy_threshold)
+            paths = self._trace_source(source, n_rays, max_hops, energy_threshold, record_paths)
+            if record_paths:
+                all_paths[source.name] = paths
+                
+        return all_paths
             
-    def _trace_source(self, source, n_rays, max_hops, energy_threshold):
+    def _trace_source(self, source, n_rays, max_hops, energy_threshold, record_paths=False):
         # Generate rays
         # Uniform sphere sampling
         phi = np.random.uniform(0, 2*np.pi, n_rays)
@@ -58,23 +72,22 @@ class RayTracer:
              else:
                  gain = np.ones(n_rays)
                  
-             # Normalize gain so total energy is conserved relative to uniform source?
-             # Ideally sum(gain * base_energy) = source.power
-             # If we want to represent focusing power:
-             # current sum = sum(gain) * base_energy
-             # scaling_factor = n_rays / sum(gain)
-             # energy_per_ray = base_energy * gain * scaling_factor
-             
              scaling_factor = n_rays / (np.sum(gain) + 1e-9)
              initial_energies = base_energy * gain * scaling_factor
         else:
              initial_energies = np.full(n_rays, base_energy)
+        
+        collected_paths = []
         
         for i in tqdm(range(n_rays)):
             ray_origin = source.position
             ray_dir = directions[i]
             current_energy = initial_energies[i]
             total_dist = 0.0
+            
+            # Current ray path data
+            ray_path = []
+            current_time = 0.0
             
             if current_energy < energy_threshold:
                 continue
@@ -149,9 +162,31 @@ class RayTracer:
 
                 # 3. Handle Wall Hit
                 if hit_obj is None:
-                    break # Lost ray
+                    # Ray lost to infinity/void
+                    if record_paths:
+                        pass
+                    break 
                 
-                total_dist += t_min
+                # Apply Air Absorption for the segment traveled
+                dist_segment = t_min
+                total_dist += dist_segment
+                dt = dist_segment / C_SOUND
+                
+                # Record segment if needed
+                if record_paths:
+                    segment = {
+                        'start': ray_origin,
+                        'end': hit_point,
+                        't_start': current_time,
+                        't_end': current_time + dt,
+                        'energy': current_energy
+                    }
+                    ray_path.append(segment)
+                
+                current_time += dt
+                
+                # Energy decay due to air: E = E0 * 10^(-alpha_dB * dist / 10)
+                current_energy *= 10**(-self.air_absorption_db_m * dist_segment / 10.0)
                 
                 # Material interaction
                 mat = hit_obj.material
@@ -186,3 +221,8 @@ class RayTracer:
                          ray_dir = reflect_vector(ray_dir, hit_normal)
                      
                      ray_origin = hit_point + hit_normal * 1e-3
+            
+            if record_paths and ray_path:
+                collected_paths.append(ray_path)
+                
+        return collected_paths if record_paths else None

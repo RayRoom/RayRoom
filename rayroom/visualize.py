@@ -203,3 +203,4 @@ def plot_room_2d(room, filename=None, show=True):
         plt.show()
     else:
         plt.close(fig)
+
