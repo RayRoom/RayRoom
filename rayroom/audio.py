@@ -73,7 +73,8 @@ class AudioRenderer:
             
         return data
         
-    def render(self, n_rays=20000, max_hops=50, rir_duration=2.0, verbose=True, record_paths=False):
+    def render(self, n_rays=20000, max_hops=50, rir_duration=2.0, 
+               verbose=True, record_paths=False, interference=False):
         """
         Run the full rendering pipeline.
         
@@ -93,6 +94,8 @@ class AudioRenderer:
         :type verbose: bool
         :param record_paths: Return ray paths for visualization. Defaults to False.
         :type record_paths: bool
+        :param interference: If True, enables deterministic phase for interference effects. Defaults to False.
+        :type interference: bool
         :return: If record_paths is False, returns a dict {receiver_name: mixed_audio_array}.
                  If True, returns tuple (receiver_outputs, paths_data).
         :rtype: dict or tuple
@@ -138,7 +141,9 @@ class AudioRenderer:
             
             for rx in self.room.receivers:
                 # Generate RIR
-                rir = generate_rir(rx.energy_histogram, fs=self.fs, duration=rir_duration)
+                rir = generate_rir(rx.energy_histogram, fs=self.fs, 
+                                 duration=rir_duration, 
+                                 random_phase=not interference)
                 
                 # Convolve
                 # Apply source gain to audio before convolution
@@ -172,11 +177,11 @@ class AudioRenderer:
             return receiver_outputs, all_paths
         return receiver_outputs
 
-def generate_rir(energy_histogram, fs=44100, duration=None):
+def generate_rir(energy_histogram, fs=44100, duration=None, random_phase=True):
     """
     Convert an energy histogram to a Room Impulse Response (RIR).
     
-    It reconstructs the impulse response by placing random-phase impulses 
+    It reconstructs the impulse response by placing impulses 
     at arrival times with amplitudes scaled by the square root of energy.
     
     :param energy_histogram: List of (time, energy) tuples.
@@ -185,6 +190,10 @@ def generate_rir(energy_histogram, fs=44100, duration=None):
     :type fs: int
     :param duration: Length of IR in seconds. If None, fits to max arrival time.
     :type duration: float, optional
+    :param random_phase: If True, randomizes phase of impulses. If False, 
+                         uses positive phase. Set to False to enable 
+                         deterministic interference. Defaults to True.
+    :type random_phase: bool
     :return: The audio impulse response array.
     :rtype: np.ndarray
     """
@@ -210,8 +219,12 @@ def generate_rir(energy_histogram, fs=44100, duration=None):
     indices = indices[valid]
     energies = energies[valid]
     
-    # RIR amplitude ~ sqrt(Energy) * random_sign
-    signs = np.random.choice([-1, 1], size=len(indices))
+    # RIR amplitude ~ sqrt(Energy) * sign
+    if random_phase:
+        signs = np.random.choice([-1, 1], size=len(indices))
+    else:
+        signs = np.ones(len(indices))
+        
     amplitudes = signs * np.sqrt(energies)
     
     np.add.at(rir, indices, amplitudes)

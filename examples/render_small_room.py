@@ -72,7 +72,7 @@ def main():
     # 6. Render
     print("Starting rendering pipeline...")
     # Smaller room might need fewer rays or hops, but keeping high for quality
-    outputs, paths_data = renderer.render(n_rays=30000, max_hops=40, rir_duration=1.5, record_paths=True)
+    outputs, paths_data = renderer.render(n_rays=30000, max_hops=40, rir_duration=1.5, record_paths=True, interference=False)
     
     # 7. Save Result
     mixed_audio = outputs["Microphone"]
