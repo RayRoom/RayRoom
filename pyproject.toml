@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rayroom"
+version = "0.1.0"
+description = "A Python-based ray tracing acoustics simulator supporting complex room geometries, materials, and furniture."
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+  {name = "Yanis Labrak"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Multimedia :: Sound/Audio",
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/rayroom/rayroom"
+"Bug Tracker" = "https://github.com/rayroom/rayroom/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rayroom*"]

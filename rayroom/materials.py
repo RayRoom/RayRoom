@@ -1,19 +1,23 @@
 import numpy as np
 
 class Material:
+    """
+    Defines the acoustic properties of a surface.
+    """
     def __init__(self, name, absorption=0.1, transmission=0.0, scattering=0.0):
         """
         Initialize a Material.
         
-        Args:
-            name (str): Name of the material.
-            absorption (float or np.array): Absorption coefficient (alpha). 
-                                            0 = perfect reflection, 1 = perfect absorption.
-                                            Can be a single float or array for frequency bands.
-            transmission (float or np.array): Transmission coefficient (tau).
-                                              0 = opaque, 1 = fully transparent.
-            scattering (float or np.array): Scattering coefficient (s).
-                                            0 = specular, 1 = diffuse.
+        :param name: Name of the material.
+        :type name: str
+        :param absorption: Absorption coefficient (alpha). 0 = perfect reflection, 1 = perfect absorption.
+                           Can be a single float or array for frequency bands. Defaults to 0.1.
+        :type absorption: float or np.array
+        :param transmission: Transmission coefficient (tau). 0 = opaque, 1 = fully transparent.
+                             Defaults to 0.0.
+        :type transmission: float or np.array
+        :param scattering: Scattering coefficient (s). 0 = specular, 1 = diffuse. Defaults to 0.0.
+        :type scattering: float or np.array
         """
         self.name = name
         self.absorption = np.array(absorption) if isinstance(absorption, (list, tuple)) else np.array([absorption])
@@ -25,6 +29,14 @@ class Material:
 
 # Common Materials Library
 def get_material(name):
+    """
+    Retrieve a standard material by name.
+    
+    :param name: Name of the material (e.g., "concrete", "glass", "wood").
+    :type name: str
+    :return: A Material object.
+    :rtype: rayroom.materials.Material
+    """
     # Simplified values, ideally these would be frequency dependent arrays
     materials = {
         "concrete": Material("Concrete", absorption=0.05, transmission=0.0),
@@ -35,6 +47,7 @@ def get_material(name):
         "plaster": Material("Plaster", absorption=0.1, transmission=0.0),
         "air": Material("Air", absorption=0.0, transmission=1.0), # Fully transparent
         "transparent_wall": Material("TransparentWall", absorption=0.1, transmission=0.8),
+        "human": Material("Human", absorption=0.5, transmission=0.0, scattering=0.5),
     }
     return materials.get(name, Material("Default", 0.1, 0.0))
 

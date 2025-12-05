@@ -24,7 +24,7 @@ def main():
     
     # 3. Add Furniture
     # Add a Person (blocker)
-    person = Person("Person", [2, 2, 0], height=1.7, width=0.5, depth=0.3, material_name="heavy_curtain")
+    person = Person("Person", [2, 2, 0], height=1.7, width=0.5, depth=0.3, material_name="human")
     room.add_furniture(person)
     
     # Add a Table (using Person class as a box proxy with wood material)

@@ -1,6 +1,13 @@
 # RayRoom: 3D Room Acoustics Simulator
 
+<p align="center">
+  <img src="docs/_static/RayRoom.jpg" alt="RayRoom Logo" width="300">
+</p>
+
 A Python-based ray tracing acoustics simulator supporting complex room geometries, materials, and furniture.
+
+[![PyPI version](https://badge.fury.io/py/rayroom.svg)](https://badge.fury.io/py/rayroom)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
@@ -12,8 +19,18 @@ A Python-based ray tracing acoustics simulator supporting complex room geometrie
 
 ## Installation
 
+You can install RayRoom directly from PyPI:
+
 ```bash
-pip install -r requirements.txt
+pip install rayroom
+```
+
+Or install from source:
+
+```bash
+git clone https://github.com/rayroom/rayroom.git
+cd rayroom
+pip install .
 ```
 
 ## Usage
@@ -49,3 +66,13 @@ See `examples/polygon_room.py` for creating rooms from 2D floor plans.
 - `rayroom/objects.py`: Source, Receiver, Furniture classes.
 - `rayroom/materials.py`: Material properties.
 - `rayroom/geometry.py`: Vector math and intersection tests.
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+Please make sure to update tests as appropriate.
+
+## License
+
+[MIT](LICENSE)

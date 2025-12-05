@@ -7,9 +7,23 @@ from .core import RayTracer
 class AudioRenderer:
     """
     Handles the audio rendering pipeline for a Room.
-    Manages sources, audio data, ray tracing, RIR generation, convolution, and mixing.
+    
+    Manages sources, audio data, ray tracing, Room Impulse Response (RIR) generation, 
+    convolution, and mixing to produce the final audio output for each receiver.
     """
     def __init__(self, room, fs=44100, temperature=20.0, humidity=50.0):
+        """
+        Initialize the AudioRenderer.
+
+        :param room: The Room object to render.
+        :type room: rayroom.room.Room
+        :param fs: Sampling rate in Hz. Defaults to 44100.
+        :type fs: int
+        :param temperature: Temperature in Celsius. Defaults to 20.0.
+        :type temperature: float
+        :param humidity: Relative humidity in percent. Defaults to 50.0.
+        :type humidity: float
+        """
         self.room = room
         self.fs = fs
         self.source_audios = {} # Map source_obj -> audio_array
@@ -20,10 +34,12 @@ class AudioRenderer:
         """
         Assign audio data to a Source object.
         
-        Args:
-            source: The Source object.
-            audio_data: numpy array or path to wav file.
-            gain: Linear gain factor for this source's audio (default 1.0).
+        :param source: The Source object in the room.
+        :type source: rayroom.objects.Source
+        :param audio_data: Audio data as a numpy array or a path to a WAV file.
+        :type audio_data: np.ndarray or str
+        :param gain: Linear gain factor for this source's audio. Defaults to 1.0.
+        :type gain: float
         """
         if isinstance(audio_data, str):
             # Load from file
@@ -61,10 +77,25 @@ class AudioRenderer:
         """
         Run the full rendering pipeline.
         
-        Returns:
-             tuple: (receiver_outputs, paths_data)
-             receiver_outputs: dict: {receiver_name: mixed_audio_array}
-             paths_data: dict {source_name: list of rays} or None if record_paths=False
+        1. Traces rays for each source.
+        2. Generates an energy histogram for each receiver.
+        3. Converts histograms to RIRs.
+        4. Convolves source audio with RIRs.
+        5. Mixes output for each receiver.
+
+        :param n_rays: Number of rays per source. Defaults to 20000.
+        :type n_rays: int
+        :param max_hops: Maximum reflections. Defaults to 50.
+        :type max_hops: int
+        :param rir_duration: Duration of the generated Impulse Response in seconds. Defaults to 2.0.
+        :type rir_duration: float
+        :param verbose: Print progress. Defaults to True.
+        :type verbose: bool
+        :param record_paths: Return ray paths for visualization. Defaults to False.
+        :type record_paths: bool
+        :return: If record_paths is False, returns a dict {receiver_name: mixed_audio_array}.
+                 If True, returns tuple (receiver_outputs, paths_data).
+        :rtype: dict or tuple
         """
         # Initialize outputs for each receiver
         receiver_outputs = {rx.name: None for rx in self.room.receivers}
@@ -143,15 +174,19 @@ class AudioRenderer:
 
 def generate_rir(energy_histogram, fs=44100, duration=None):
     """
-    Convert energy histogram to a Room Impulse Response (RIR).
+    Convert an energy histogram to a Room Impulse Response (RIR).
     
-    Args:
-        energy_histogram: List of (time, energy) tuples.
-        fs: Sampling rate.
-        duration: Length of IR in seconds. If None, fits to max time.
-        
-    Returns:
-        np.array: The audio impulse response.
+    It reconstructs the impulse response by placing random-phase impulses 
+    at arrival times with amplitudes scaled by the square root of energy.
+    
+    :param energy_histogram: List of (time, energy) tuples.
+    :type energy_histogram: list[tuple]
+    :param fs: Sampling rate in Hz. Defaults to 44100.
+    :type fs: int
+    :param duration: Length of IR in seconds. If None, fits to max arrival time.
+    :type duration: float, optional
+    :return: The audio impulse response array.
+    :rtype: np.ndarray
     """
     if not energy_histogram:
         return np.zeros(int(fs * (duration if duration else 1.0)))
@@ -186,7 +221,15 @@ def generate_rir(energy_histogram, fs=44100, duration=None):
 def convolve_and_mix(sources_data, fs=44100):
     """
     Legacy helper: Convolve source audios with their RIRs and mix.
+    
     Kept for backward compatibility or manual usage.
+
+    :param sources_data: List of dicts with 'audio' (numpy array) and 'rir' (numpy array).
+    :type sources_data: list[dict]
+    :param fs: Sampling rate. Defaults to 44100.
+    :type fs: int
+    :return: Mixed audio array.
+    :rtype: np.ndarray
     """
     max_len = 0
     mixed = None

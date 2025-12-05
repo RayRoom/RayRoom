@@ -1,6 +1,14 @@
 import numpy as np
 
 def normalize(v):
+    """
+    Normalize a vector to unit length.
+
+    :param v: Input vector.
+    :type v: np.ndarray
+    :return: Normalized vector.
+    :rtype: np.ndarray
+    """
     norm = np.linalg.norm(v)
     if norm == 0: 
        return v
@@ -8,9 +16,19 @@ def normalize(v):
 
 def ray_plane_intersection(ray_origin, ray_dir, plane_point, plane_normal):
     """
-    Calculate intersection of a ray and a plane.
-    Returns t such that intersection_point = ray_origin + t * ray_dir
-    Returns None if no intersection (parallel).
+    Calculate the intersection point of a ray and a plane.
+
+    :param ray_origin: Origin point of the ray [x, y, z].
+    :type ray_origin: np.ndarray
+    :param ray_dir: Direction vector of the ray [x, y, z].
+    :type ray_dir: np.ndarray
+    :param plane_point: A point on the plane [x, y, z].
+    :type plane_point: np.ndarray
+    :param plane_normal: Normal vector of the plane [x, y, z].
+    :type plane_normal: np.ndarray
+    :return: The distance t along the ray to the intersection point, or None if no intersection.
+             Intersection point = ray_origin + t * ray_dir.
+    :rtype: float or None
     """
     denom = np.dot(ray_dir, plane_normal)
     if abs(denom) < 1e-6:
@@ -25,7 +43,18 @@ def ray_plane_intersection(ray_origin, ray_dir, plane_point, plane_normal):
 def is_point_in_polygon(point, vertices, normal):
     """
     Check if a point lying on the polygon's plane is inside the polygon.
-    Using the angle sum method or crossing number algorithm projected to 2D.
+
+    Uses the crossing number algorithm projected to 2D (dropping the dimension with
+    the largest normal component).
+
+    :param point: Point to check [x, y, z].
+    :type point: np.ndarray
+    :param vertices: Vertices of the polygon.
+    :type vertices: np.ndarray
+    :param normal: Normal vector of the polygon's plane.
+    :type normal: np.ndarray
+    :return: True if the point is inside, False otherwise.
+    :rtype: bool
     """
     # Project 3D to 2D by dropping the dimension with largest normal component
     abs_n = np.abs(normal)
@@ -59,12 +88,27 @@ def is_point_in_polygon(point, vertices, normal):
     return inside
 
 def reflect_vector(incident, normal):
+    """
+    Calculate the reflection of a vector.
+
+    :param incident: Incident vector.
+    :type incident: np.ndarray
+    :param normal: Surface normal vector.
+    :type normal: np.ndarray
+    :return: Reflected vector.
+    :rtype: np.ndarray
+    """
     return incident - 2 * np.dot(incident, normal) * normal
 
 def random_direction_hemisphere(normal):
     """
-    Generate a random direction in the hemisphere defined by normal.
-    Uses cosine weighted sampling.
+    Generate a random direction in the hemisphere defined by a normal vector.
+    Uses cosine-weighted sampling, often used for diffuse reflection.
+
+    :param normal: The normal vector defining the hemisphere.
+    :type normal: np.ndarray
+    :return: A normalized random direction vector.
+    :rtype: np.ndarray
     """
     # Create a random coordinate system
     if abs(normal[0]) > 0.9:

@@ -5,12 +5,14 @@ import numpy as np
 
 def plot_room(room, filename=None, show=True):
     """
-    Plot the room in 3D.
+    Plot the room in 3D using Matplotlib.
     
-    Args:
-        room: The Room object.
-        filename (str): If provided, save the figure to this path.
-        show (bool): If True, show the plot window (blocking).
+    :param room: The Room object to visualize.
+    :type room: rayroom.room.Room
+    :param filename: Path to save the image. If None, the image is not saved.
+    :type filename: str, optional
+    :param show: Whether to show the interactive plot window. Defaults to True.
+    :type show: bool
     """
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
@@ -109,10 +111,14 @@ def plot_room_2d(room, filename=None, show=True):
     """
     Plot the room in 2D (Top View).
     
-    Args:
-        room: The Room object.
-        filename (str): If provided, save the figure to this path.
-        show (bool): If True, show the plot window.
+    Displays the floor plan, furniture footprints, sources, and receivers.
+    
+    :param room: The Room object.
+    :type room: rayroom.room.Room
+    :param filename: If provided, save the figure to this path.
+    :type filename: str, optional
+    :param show: If True, show the plot window. Defaults to True.
+    :type show: bool
     """
     fig, ax = plt.subplots(figsize=(10, 8))
     

@@ -6,7 +6,23 @@ from .physics import air_absorption_coefficient
 C_SOUND = 343.0 # m/s
 
 class RayTracer:
+    """
+    Main ray tracing engine for room acoustics simulation.
+
+    This class handles the emission, propagation, reflection, and absorption of sound rays
+    within a defined room geometry.
+    """
     def __init__(self, room, temperature=20.0, humidity=50.0):
+        """
+        Initialize the RayTracer.
+
+        :param room: The Room object containing geometry and materials.
+        :type room: rayroom.room.Room
+        :param temperature: Ambient temperature in Celsius. Defaults to 20.0.
+        :type temperature: float
+        :param humidity: Relative humidity in percent. Defaults to 50.0.
+        :type humidity: float
+        """
         self.room = room
         self.temperature = temperature
         self.humidity = humidity
@@ -17,8 +33,21 @@ class RayTracer:
         
     def run(self, n_rays=10000, max_hops=50, energy_threshold=1e-6, record_paths=False):
         """
-        Run the simulation.
-        record_paths: If True, returns a list of ray paths (list of list of segments).
+        Run the acoustic simulation.
+
+        Emits rays from all sources in the room and traces their paths until they are absorbed
+        or reach the maximum number of reflections.
+
+        :param n_rays: Number of rays to cast per source. Defaults to 10000.
+        :type n_rays: int
+        :param max_hops: Maximum number of reflections (hops) per ray. Defaults to 50.
+        :type max_hops: int
+        :param energy_threshold: Energy level below which a ray is stopped. Defaults to 1e-6.
+        :type energy_threshold: float
+        :param record_paths: Whether to record and return the geometric paths of all rays (memory intensive). Defaults to False.
+        :type record_paths: bool
+        :return: Dictionary mapping source names to lists of ray paths if record_paths is True, else None.
+        :rtype: dict or None
         """
         all_paths = {} if record_paths else None
         

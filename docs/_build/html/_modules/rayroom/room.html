@@ -1,0 +1,345 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>rayroom.room &mdash; RayRoom 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            RayRoom
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">RayRoom API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">RayRoom</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">rayroom.room</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for rayroom.room</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.objects</span><span class="w"> </span><span class="kn">import</span> <span class="n">Furniture</span><span class="p">,</span> <span class="n">Source</span><span class="p">,</span> <span class="n">Receiver</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.materials</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_material</span>
+
+<div class="viewcode-block" id="Wall">
+<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Wall">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Wall</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Represents a single planar wall in the room.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">vertices</span><span class="p">,</span> <span class="n">material</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize a Wall.</span>
+
+<span class="sd">        :param name: Name of the wall.</span>
+<span class="sd">        :type name: str</span>
+<span class="sd">        :param vertices: List of 3D coordinates defining the wall polygon.</span>
+<span class="sd">        :type vertices: list or np.ndarray</span>
+<span class="sd">        :param material: Material properties of the wall.</span>
+<span class="sd">        :type material: rayroom.materials.Material</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vertices</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">material</span> <span class="o">=</span> <span class="n">material</span>
+        
+        <span class="c1"># Compute normal</span>
+        <span class="n">p0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">p1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">p2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">v1</span> <span class="o">=</span> <span class="n">p1</span> <span class="o">-</span> <span class="n">p0</span>
+        <span class="n">v2</span> <span class="o">=</span> <span class="n">p2</span> <span class="o">-</span> <span class="n">p0</span>
+        <span class="n">normal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">normal</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">norm</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">normal</span> <span class="o">=</span> <span class="n">normal</span> <span class="o">/</span> <span class="n">norm</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">normal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="Room">
+<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Room</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Represents the acoustic environment, including geometry, materials, and objects.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">walls</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize a Room.</span>
+
+<span class="sd">        :param walls: List of Wall objects defining the room boundary.</span>
+<span class="sd">        :type walls: list[rayroom.room.Wall], optional</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">walls</span> <span class="o">=</span> <span class="n">walls</span> <span class="k">if</span> <span class="n">walls</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">furniture</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sources</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">receivers</span> <span class="o">=</span> <span class="p">[]</span>
+        
+<div class="viewcode-block" id="Room.add_furniture">
+<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.add_furniture">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_furniture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a furniture object to the room.</span>
+
+<span class="sd">        :param item: Furniture object to add.</span>
+<span class="sd">        :type item: rayroom.objects.Furniture</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">furniture</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span></div>
+
+        
+<div class="viewcode-block" id="Room.add_source">
+<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.add_source">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a sound source to the room.</span>
+
+<span class="sd">        :param source: Source object to add.</span>
+<span class="sd">        :type source: rayroom.objects.Source</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sources</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">source</span><span class="p">)</span></div>
+
+        
+<div class="viewcode-block" id="Room.add_receiver">
+<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.add_receiver">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_receiver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">receiver</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a receiver (microphone) to the room.</span>
+
+<span class="sd">        :param receiver: Receiver object to add.</span>
+<span class="sd">        :type receiver: rayroom.objects.Receiver</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">receivers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">receiver</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Room.plot">
+<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.plot">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">view</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot the room geometry and objects.</span>
+
+<span class="sd">        :param filename: Path to save the plot image. If None, the plot is not saved.</span>
+<span class="sd">        :type filename: str, optional</span>
+<span class="sd">        :param show: Whether to display the plot window. Defaults to True.</span>
+<span class="sd">        :type show: bool</span>
+<span class="sd">        :param view: Type of view, either &#39;3d&#39; or &#39;2d&#39;. Defaults to &#39;3d&#39;.</span>
+<span class="sd">        :type view: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.visualize</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_room</span><span class="p">,</span> <span class="n">plot_room_2d</span>
+        <span class="k">if</span> <span class="n">view</span> <span class="o">==</span> <span class="s1">&#39;2d&#39;</span><span class="p">:</span>
+             <span class="n">plot_room_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">show</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+             <span class="n">plot_room</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">show</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Room.create_shoebox">
+<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.create_shoebox">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_shoebox</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dimensions</span><span class="p">,</span> <span class="n">materials</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a shoebox room.</span>
+<span class="sd">        :param dimensions: [width, depth, height]</span>
+<span class="sd">        :type dimensions: list</span>
+<span class="sd">        :param materials: Material for all walls, or dict with keys: floor, ceiling, front, back, left, right.</span>
+<span class="sd">        :type materials: rayroom.materials.Material or dict, optional</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">w</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">dimensions</span>
+        
+        <span class="k">if</span> <span class="n">materials</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mat_def</span> <span class="o">=</span> <span class="n">get_material</span><span class="p">(</span><span class="s2">&quot;concrete&quot;</span><span class="p">)</span>
+            <span class="n">mats</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">mat_def</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;floor&quot;</span><span class="p">,</span> <span class="s2">&quot;ceiling&quot;</span><span class="p">,</span> <span class="s2">&quot;front&quot;</span><span class="p">,</span> <span class="s2">&quot;back&quot;</span><span class="p">,</span> <span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">]}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">materials</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="c1"># fill missing with default</span>
+            <span class="n">default</span> <span class="o">=</span> <span class="n">get_material</span><span class="p">(</span><span class="s2">&quot;concrete&quot;</span><span class="p">)</span>
+            <span class="n">mats</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">materials</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;floor&quot;</span><span class="p">,</span> <span class="s2">&quot;ceiling&quot;</span><span class="p">,</span> <span class="s2">&quot;front&quot;</span><span class="p">,</span> <span class="s2">&quot;back&quot;</span><span class="p">,</span> <span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">]}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Single material</span>
+            <span class="n">mats</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">materials</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;floor&quot;</span><span class="p">,</span> <span class="s2">&quot;ceiling&quot;</span><span class="p">,</span> <span class="s2">&quot;front&quot;</span><span class="p">,</span> <span class="s2">&quot;back&quot;</span><span class="p">,</span> <span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">]}</span>
+            
+        <span class="c1"># Vertices</span>
+        <span class="c1"># 0: 0,0,0</span>
+        <span class="c1"># 1: w,0,0</span>
+        <span class="c1"># 2: w,d,0</span>
+        <span class="c1"># 3: 0,d,0</span>
+        <span class="c1"># 4: 0,0,h</span>
+        <span class="c1"># 5: w,0,h</span>
+        <span class="c1"># 6: w,d,h</span>
+        <span class="c1"># 7: 0,d,h</span>
+        
+        <span class="n">v</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">w</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">w</span><span class="p">,</span><span class="n">d</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="n">d</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="n">h</span><span class="p">],</span> <span class="p">[</span><span class="n">w</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="n">h</span><span class="p">],</span> <span class="p">[</span><span class="n">w</span><span class="p">,</span><span class="n">d</span><span class="p">,</span><span class="n">h</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="n">d</span><span class="p">,</span><span class="n">h</span><span class="p">]</span>
+        <span class="p">]</span>
+        
+        <span class="n">walls</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># Floor (normal up) 0-3-2-1 -&gt; Reverse to point IN (Up): 1-2-3-0</span>
+        <span class="c1"># Current: 0,3,2,1 -&gt; Normal Down (Out).</span>
+        <span class="c1"># Reversed: 1,2,3,0 -&gt; Normal Up (In).</span>
+        <span class="n">walls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Wall</span><span class="p">(</span><span class="s2">&quot;Floor&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">mats</span><span class="p">[</span><span class="s2">&quot;floor&quot;</span><span class="p">]))</span>
+        
+        <span class="c1"># Ceiling (normal down) 4-5-6-7 -&gt; Normal Up (Out).</span>
+        <span class="c1"># Reversed: 7,6,5,4 -&gt; Normal Down (In).</span>
+        <span class="n">walls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Wall</span><span class="p">(</span><span class="s2">&quot;Ceiling&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">4</span><span class="p">]],</span> <span class="n">mats</span><span class="p">[</span><span class="s2">&quot;ceiling&quot;</span><span class="p">]))</span>
+        
+        <span class="c1"># Front (y=0) 0-1-5-4 -&gt; Normal -y (Out).</span>
+        <span class="c1"># Reversed: 4,5,1,0 -&gt; Normal +y (In).</span>
+        <span class="n">walls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Wall</span><span class="p">(</span><span class="s2">&quot;Front&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">mats</span><span class="p">[</span><span class="s2">&quot;front&quot;</span><span class="p">]))</span>
+        
+        <span class="c1"># Back (y=d) 2-3-7-6 -&gt; Normal +y (Out).</span>
+        <span class="c1"># Reversed: 6,7,3,2 -&gt; Normal -y (In).</span>
+        <span class="n">walls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Wall</span><span class="p">(</span><span class="s2">&quot;Back&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">2</span><span class="p">]],</span> <span class="n">mats</span><span class="p">[</span><span class="s2">&quot;back&quot;</span><span class="p">]))</span>
+        
+        <span class="c1"># Left (x=0) 3-0-4-7 -&gt; Normal -x (Out).</span>
+        <span class="c1"># Reversed: 7,4,0,3 -&gt; Normal +x (In).</span>
+        <span class="n">walls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Wall</span><span class="p">(</span><span class="s2">&quot;Left&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">3</span><span class="p">]],</span> <span class="n">mats</span><span class="p">[</span><span class="s2">&quot;left&quot;</span><span class="p">]))</span>
+        
+        <span class="c1"># Right (x=w) 1-2-6-5 -&gt; Normal +x (Out).</span>
+        <span class="c1"># Reversed: 5,6,2,1 -&gt; Normal -x (In).</span>
+        <span class="n">walls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Wall</span><span class="p">(</span><span class="s2">&quot;Right&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">mats</span><span class="p">[</span><span class="s2">&quot;right&quot;</span><span class="p">]))</span>
+        
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">walls</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Room.create_from_corners">
+<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.create_from_corners">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_from_corners</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">corners</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">materials</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a room from a 2D floor plan (corners) and a height.</span>
+
+<span class="sd">        :param corners: List of (x, y) tuples defining the floor polygon.</span>
+<span class="sd">                        Order should be counter-clockwise for inward-facing normals.</span>
+<span class="sd">        :type corners: list[tuple]</span>
+<span class="sd">        :param height: Height of the room.</span>
+<span class="sd">        :type height: float</span>
+<span class="sd">        :param materials: Dictionary mapping &#39;floor&#39;, &#39;ceiling&#39;, &#39;walls&#39; to Material objects.</span>
+<span class="sd">        :type materials: dict, optional</span>
+<span class="sd">        :return: A new Room instance.</span>
+<span class="sd">        :rtype: Room</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Determine winding order to ensure normals point inward.</span>
+        <span class="c1"># Assuming standard counter-clockwise usually means normals out? </span>
+        <span class="c1"># For a room, we want normals pointing *in*.</span>
+        
+        <span class="c1"># Make floor and ceiling</span>
+        <span class="c1"># Walls connecting them.</span>
+        
+        <span class="k">if</span> <span class="n">materials</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+             <span class="n">mat_def</span> <span class="o">=</span> <span class="n">get_material</span><span class="p">(</span><span class="s2">&quot;concrete&quot;</span><span class="p">)</span>
+             <span class="n">mats</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;floor&quot;</span><span class="p">:</span> <span class="n">mat_def</span><span class="p">,</span> <span class="s2">&quot;ceiling&quot;</span><span class="p">:</span> <span class="n">mat_def</span><span class="p">,</span> <span class="s2">&quot;walls&quot;</span><span class="p">:</span> <span class="n">mat_def</span><span class="p">}</span>
+        
+        <span class="n">walls</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="c1"># Convert to 3D</span>
+        <span class="n">floor_verts</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">])</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">corners</span><span class="p">]</span>
+        <span class="n">ceil_verts</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">height</span><span class="p">])</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">corners</span><span class="p">]</span>
+        
+        <span class="c1"># Floor: Normal should be Up (0,0,1)</span>
+        <span class="c1"># If corners are CCW, standard cross product gives Up.</span>
+        <span class="c1"># Let&#39;s assume CCW.</span>
+        <span class="n">walls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Wall</span><span class="p">(</span><span class="s2">&quot;Floor&quot;</span><span class="p">,</span> <span class="n">floor_verts</span><span class="p">,</span> <span class="n">mats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;floor&quot;</span><span class="p">,</span> <span class="n">get_material</span><span class="p">(</span><span class="s2">&quot;concrete&quot;</span><span class="p">))))</span>
+        
+        <span class="c1"># Ceiling: Normal Down (0,0,-1). Reverse order.</span>
+        <span class="n">walls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Wall</span><span class="p">(</span><span class="s2">&quot;Ceiling&quot;</span><span class="p">,</span> <span class="n">ceil_verts</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">mats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ceiling&quot;</span><span class="p">,</span> <span class="n">get_material</span><span class="p">(</span><span class="s2">&quot;concrete&quot;</span><span class="p">))))</span>
+        
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">corners</span><span class="p">)</span>
+        <span class="n">wall_mat</span> <span class="o">=</span> <span class="n">mats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;walls&quot;</span><span class="p">,</span> <span class="n">get_material</span><span class="p">(</span><span class="s2">&quot;concrete&quot;</span><span class="p">))</span>
+        
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">p1</span> <span class="o">=</span> <span class="n">floor_verts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">p2</span> <span class="o">=</span> <span class="n">floor_verts</span><span class="p">[(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">%</span><span class="n">n</span><span class="p">]</span>
+            <span class="n">p3</span> <span class="o">=</span> <span class="n">ceil_verts</span><span class="p">[(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">%</span><span class="n">n</span><span class="p">]</span>
+            <span class="n">p4</span> <span class="o">=</span> <span class="n">ceil_verts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            
+            <span class="c1"># Wall rectangle p1, p2, p3, p4</span>
+            <span class="c1"># If floor is CCW, p1-&gt;p2 is along boundary. Up is z.</span>
+            <span class="c1"># Cross(p2-p1, Up) points Inward if CCW.</span>
+            <span class="c1"># So Normal = Cross(Right, Up) -&gt; Inward.</span>
+            <span class="c1"># Vertices order for Inward Normal: p1, p2, p3, p4</span>
+            
+            <span class="n">walls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Wall</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Wall_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span><span class="p">,</span> <span class="n">p4</span><span class="p">],</span> <span class="n">wall_mat</span><span class="p">))</span>
+            
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">walls</span><span class="p">)</span></div>
+</div>
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Yanis Labrak.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

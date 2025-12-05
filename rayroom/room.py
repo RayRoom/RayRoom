@@ -3,7 +3,20 @@ from .objects import Furniture, Source, Receiver
 from .materials import get_material
 
 class Wall:
+    """
+    Represents a single planar wall in the room.
+    """
     def __init__(self, name, vertices, material):
+        """
+        Initialize a Wall.
+
+        :param name: Name of the wall.
+        :type name: str
+        :param vertices: List of 3D coordinates defining the wall polygon.
+        :type vertices: list or np.ndarray
+        :param material: Material properties of the wall.
+        :type material: rayroom.materials.Material
+        """
         self.name = name
         self.vertices = np.array(vertices)
         self.material = material
@@ -22,25 +35,58 @@ class Wall:
             self.normal = np.array([0, 0, 1])
 
 class Room:
+    """
+    Represents the acoustic environment, including geometry, materials, and objects.
+    """
     def __init__(self, walls=None):
+        """
+        Initialize a Room.
+
+        :param walls: List of Wall objects defining the room boundary.
+        :type walls: list[rayroom.room.Wall], optional
+        """
         self.walls = walls if walls else []
         self.furniture = []
         self.sources = []
         self.receivers = []
         
     def add_furniture(self, item):
+        """
+        Add a furniture object to the room.
+
+        :param item: Furniture object to add.
+        :type item: rayroom.objects.Furniture
+        """
         self.furniture.append(item)
         
     def add_source(self, source):
+        """
+        Add a sound source to the room.
+
+        :param source: Source object to add.
+        :type source: rayroom.objects.Source
+        """
         self.sources.append(source)
         
     def add_receiver(self, receiver):
+        """
+        Add a receiver (microphone) to the room.
+
+        :param receiver: Receiver object to add.
+        :type receiver: rayroom.objects.Receiver
+        """
         self.receivers.append(receiver)
 
     def plot(self, filename=None, show=True, view='3d'):
         """
         Plot the room geometry and objects.
-        view: '3d' or '2d'
+
+        :param filename: Path to save the plot image. If None, the plot is not saved.
+        :type filename: str, optional
+        :param show: Whether to display the plot window. Defaults to True.
+        :type show: bool
+        :param view: Type of view, either '3d' or '2d'. Defaults to '3d'.
+        :type view: str
         """
         from .visualize import plot_room, plot_room_2d
         if view == '2d':
@@ -52,9 +98,10 @@ class Room:
     def create_shoebox(cls, dimensions, materials=None):
         """
         Create a shoebox room.
-        dimensions: [width, depth, height]
-        materials: dict or Material (applied to all) or list of 6 materials.
-                   keys: floor, ceiling, north, south, east, west
+        :param dimensions: [width, depth, height]
+        :type dimensions: list
+        :param materials: Material for all walls, or dict with keys: floor, ceiling, front, back, left, right.
+        :type materials: rayroom.materials.Material or dict, optional
         """
         w, d, h = dimensions
         
@@ -115,8 +162,17 @@ class Room:
     @classmethod
     def create_from_corners(cls, corners, height, materials=None):
         """
-        Create room from floor corners (2D) and height.
-        corners: list of (x,y) tuples, in order (ccw or cw).
+        Create a room from a 2D floor plan (corners) and a height.
+
+        :param corners: List of (x, y) tuples defining the floor polygon.
+                        Order should be counter-clockwise for inward-facing normals.
+        :type corners: list[tuple]
+        :param height: Height of the room.
+        :type height: float
+        :param materials: Dictionary mapping 'floor', 'ceiling', 'walls' to Material objects.
+        :type materials: dict, optional
+        :return: A new Room instance.
+        :rtype: Room
         """
         # Determine winding order to ensure normals point inward.
         # Assuming standard counter-clockwise usually means normals out? 
