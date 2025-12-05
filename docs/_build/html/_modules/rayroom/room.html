@@ -39,11 +39,8 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../modules.html">RayRoom API</a></li>
-</ul>
-
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
         </div>
       </div>
     </nav>
@@ -74,7 +71,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">.materials</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_material</span>
 
 <div class="viewcode-block" id="Wall">
-<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Wall">[docs]</a>
+<a class="viewcode-back" href="../../index.html#rayroom.room.Wall">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Wall</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Represents a single planar wall in the room.</span>
@@ -109,7 +106,7 @@
 
 
 <div class="viewcode-block" id="Room">
-<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room">[docs]</a>
+<a class="viewcode-back" href="../../index.html#rayroom.room.Room">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Room</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Represents the acoustic environment, including geometry, materials, and objects.</span>
@@ -127,7 +124,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">receivers</span> <span class="o">=</span> <span class="p">[]</span>
         
 <div class="viewcode-block" id="Room.add_furniture">
-<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.add_furniture">[docs]</a>
+<a class="viewcode-back" href="../../index.html#rayroom.room.Room.add_furniture">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">add_furniture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Add a furniture object to the room.</span>
@@ -139,7 +136,7 @@
 
         
 <div class="viewcode-block" id="Room.add_source">
-<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.add_source">[docs]</a>
+<a class="viewcode-back" href="../../index.html#rayroom.room.Room.add_source">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">add_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Add a sound source to the room.</span>
@@ -151,7 +148,7 @@
 
         
 <div class="viewcode-block" id="Room.add_receiver">
-<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.add_receiver">[docs]</a>
+<a class="viewcode-back" href="../../index.html#rayroom.room.Room.add_receiver">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">add_receiver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">receiver</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Add a receiver (microphone) to the room.</span>
@@ -163,7 +160,7 @@
 
 
 <div class="viewcode-block" id="Room.plot">
-<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.plot">[docs]</a>
+<a class="viewcode-back" href="../../index.html#rayroom.room.Room.plot">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">view</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Plot the room geometry and objects.</span>
@@ -183,7 +180,7 @@
 
 
 <div class="viewcode-block" id="Room.create_shoebox">
-<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.create_shoebox">[docs]</a>
+<a class="viewcode-back" href="../../index.html#rayroom.room.Room.create_shoebox">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">create_shoebox</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dimensions</span><span class="p">,</span> <span class="n">materials</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -251,7 +248,7 @@
 
 
 <div class="viewcode-block" id="Room.create_from_corners">
-<a class="viewcode-back" href="../../rayroom.html#rayroom.room.Room.create_from_corners">[docs]</a>
+<a class="viewcode-back" href="../../index.html#rayroom.room.Room.create_from_corners">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">create_from_corners</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">corners</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">materials</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>

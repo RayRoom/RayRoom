@@ -1,20 +1,72 @@
-.. RayRoom documentation master file
+rayroom.core
+------------
 
-RayRoom Documentation
-=====================
+.. automodule:: rayroom.core
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-RayRoom is a Python-based ray tracing acoustics simulator supporting complex room geometries, materials, and furniture.
+rayroom.room
+------------
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+.. automodule:: rayroom.room
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-   modules
+rayroom.objects
+---------------
 
-Indices and tables
-==================
+.. automodule:: rayroom.objects
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+rayroom.materials
+-----------------
+
+.. automodule:: rayroom.materials
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+rayroom.physics
+---------------
+
+.. automodule:: rayroom.physics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+rayroom.geometry
+----------------
+
+.. automodule:: rayroom.geometry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+rayroom.visualize
+-----------------
+
+.. automodule:: rayroom.visualize
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+rayroom.audio
+-------------
+
+.. automodule:: rayroom.audio
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: rayroom
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
