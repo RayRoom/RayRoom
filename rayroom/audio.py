@@ -106,7 +106,10 @@ class AudioRenderer:
         
         # Iterate over sources that have audio assigned
         # Only render sources that are in the room AND have audio
-        valid_sources = [s for s in self.room.sources if s in self.source_audios]
+        valid_sources = [
+            s for s in self.room.sources
+            if s in self.source_audios
+        ]
         
         if not valid_sources:
             print("No sources with assigned audio found in the room.")
