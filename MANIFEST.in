@@ -1,4 +1,9 @@
 include README.md
 include LICENSE
 include requirements.txt
-recursive-include examples *.py *.wav
+recursive-include examples *.py
+global-exclude *.wav
+global-exclude *.png
+global-exclude *.jpg
+global-exclude *.jpeg
+global-exclude *.DS_Store

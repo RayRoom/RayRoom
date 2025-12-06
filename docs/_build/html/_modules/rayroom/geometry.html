@@ -68,6 +68,7 @@
   <h1>Source code for rayroom.geometry</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
+
 <div class="viewcode-block" id="normalize">
 <a class="viewcode-back" href="../../index.html#rayroom.geometry.normalize">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
@@ -80,9 +81,10 @@
 <span class="sd">    :rtype: np.ndarray</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> 
-       <span class="k">return</span> <span class="n">v</span>
+    <span class="k">if</span> <span class="n">norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">v</span>
     <span class="k">return</span> <span class="n">v</span> <span class="o">/</span> <span class="n">norm</span></div>
+
 
 
 <div class="viewcode-block" id="ray_plane_intersection">
@@ -106,12 +108,13 @@
     <span class="n">denom</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">ray_dir</span><span class="p">,</span> <span class="n">plane_normal</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">denom</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
-    
+
     <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">plane_point</span> <span class="o">-</span> <span class="n">ray_origin</span><span class="p">,</span> <span class="n">plane_normal</span><span class="p">)</span> <span class="o">/</span> <span class="n">denom</span>
     <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">return</span> <span class="kc">None</span> <span class="c1"># Intersection behind ray</span>
-        
+        <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># Intersection behind ray</span>
+
     <span class="k">return</span> <span class="n">t</span></div>
+
 
 
 <div class="viewcode-block" id="is_point_in_polygon">
@@ -146,7 +149,7 @@
         <span class="c1"># Drop z, use x, y</span>
         <span class="n">proj_p</span> <span class="o">=</span> <span class="n">point</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
         <span class="n">proj_v</span> <span class="o">=</span> <span class="n">vertices</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">]</span>
-        
+
     <span class="c1"># Crossing number algorithm</span>
     <span class="n">inside</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">proj_v</span><span class="p">)</span>
@@ -160,8 +163,9 @@
                 <span class="k">if</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">p2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span> <span class="n">proj_p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">xinters</span><span class="p">:</span>
                     <span class="n">inside</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">inside</span>
         <span class="n">p1</span> <span class="o">=</span> <span class="n">p2</span>
-        
+
     <span class="k">return</span> <span class="n">inside</span></div>
+
 
 
 <div class="viewcode-block" id="reflect_vector">
@@ -178,6 +182,7 @@
 <span class="sd">    :rtype: np.ndarray</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">incident</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">incident</span><span class="p">,</span> <span class="n">normal</span><span class="p">)</span> <span class="o">*</span> <span class="n">normal</span></div>
+
 
 
 <div class="viewcode-block" id="random_direction_hemisphere">
@@ -197,23 +202,22 @@
         <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
-        
+
     <span class="n">u</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">normal</span><span class="p">))</span>
     <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">normal</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
-    
+
     <span class="c1"># Random samples</span>
     <span class="n">phi</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span>
     <span class="n">r2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span>
     <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r2</span><span class="p">)</span>
-    
+
     <span class="n">x</span> <span class="o">=</span> <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span>
     <span class="n">y</span> <span class="o">=</span> <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span>
     <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">r2</span><span class="p">)</span>
-    
+
     <span class="c1"># Transform to world coordinates</span>
     <span class="n">direction</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">u</span> <span class="o">+</span> <span class="n">y</span> <span class="o">*</span> <span class="n">v</span> <span class="o">+</span> <span class="n">z</span> <span class="o">*</span> <span class="n">normal</span>
     <span class="k">return</span> <span class="n">normalize</span><span class="p">(</span><span class="n">direction</span><span class="p">)</span></div>
-
 
 </pre></div>
 

@@ -14,7 +14,6 @@ C_SOUND = 343.0  # m/s
 class RayTracer:
     """
     Main ray tracing engine for room acoustics simulation.
-
     This class handles the emission, propagation, reflection, and absorption of sound rays
     within a defined room geometry.
     """

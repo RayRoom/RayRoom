@@ -68,30 +68,60 @@
   <h1>Source code for rayroom.physics</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
+
 <div class="viewcode-block" id="air_absorption_coefficient">
 <a class="viewcode-back" href="../../index.html#rayroom.physics.air_absorption_coefficient">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">air_absorption_coefficient</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">humidity</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">101325.0</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Calculate air absorption coefficient (alpha) in dB/m.</span>
+<span class="sd">    Calculate air absorption coefficient (alpha) in dB/m using ISO 9613-1.</span>
 
-<span class="sd">    Simplified approximation proportional to frequency squared.</span>
-<span class="sd">    Good enough for visualization and basic energy decay.</span>
-<span class="sd">    </span>
 <span class="sd">    :param freq: Frequency in Hz.</span>
 <span class="sd">    :type freq: float</span>
-<span class="sd">    :param temperature: Temperature in Celsius. Defaults to 20.0. (unused in simplified model)</span>
+<span class="sd">    :param temperature: Temperature in Celsius. Defaults to 20.0.</span>
 <span class="sd">    :type temperature: float</span>
-<span class="sd">    :param humidity: Relative humidity in percent. Defaults to 50.0. (unused in simplified model)</span>
+<span class="sd">    :param humidity: Relative humidity in percent (0-100). Defaults to 50.0.</span>
 <span class="sd">    :type humidity: float</span>
-<span class="sd">    :param pressure: Atmospheric pressure in Pascals. Defaults to 101325.0. (unused)</span>
+<span class="sd">    :param pressure: Atmospheric pressure in Pascals. Defaults to 101325.0.</span>
 <span class="sd">    :type pressure: float</span>
 <span class="sd">    :return: Absorption coefficient in dB/m.</span>
 <span class="sd">    :rtype: float</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Approx 0.005 dB/m at 1kHz</span>
-    <span class="c1"># Scales with f^2</span>
-    <span class="n">alpha_approx</span> <span class="o">=</span> <span class="mf">5e-9</span> <span class="o">*</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">alpha_approx</span></div>
+    <span class="c1"># Constants for ISO 9613-1</span>
+    <span class="n">p_ref</span> <span class="o">=</span> <span class="mf">101325.0</span>  <span class="c1"># Reference pressure (Pa)</span>
+    <span class="n">T_ref</span> <span class="o">=</span> <span class="mf">293.15</span>    <span class="c1"># Reference temperature (K) (20 C)</span>
+    <span class="n">T_triple</span> <span class="o">=</span> <span class="mf">273.16</span>  <span class="c1"># Triple point isotherm temperature (K)</span>
+
+    <span class="c1"># Convert temperature to Kelvin</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="n">temperature</span> <span class="o">+</span> <span class="mf">273.15</span>
+
+    <span class="c1"># Ratios</span>
+    <span class="n">p_ratio</span> <span class="o">=</span> <span class="n">pressure</span> <span class="o">/</span> <span class="n">p_ref</span>
+    <span class="n">T_ratio</span> <span class="o">=</span> <span class="n">T</span> <span class="o">/</span> <span class="n">T_ref</span>
+
+    <span class="c1"># Saturation vapor pressure (psat) / p_ref</span>
+    <span class="c1"># Formula: 10 ^ ( -6.8346 * (T_triple/T)^1.261 + 4.6151 )</span>
+    <span class="n">exponent</span> <span class="o">=</span> <span class="o">-</span><span class="mf">6.8346</span> <span class="o">*</span> <span class="p">((</span><span class="n">T_triple</span> <span class="o">/</span> <span class="n">T</span><span class="p">)</span><span class="o">**</span><span class="mf">1.261</span><span class="p">)</span> <span class="o">+</span> <span class="mf">4.6151</span>
+    <span class="n">psat_ratio</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="n">exponent</span>
+
+    <span class="c1"># Molar concentration of water vapor (h) in percent</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">humidity</span> <span class="o">*</span> <span class="n">psat_ratio</span> <span class="o">/</span> <span class="n">p_ratio</span>
+
+    <span class="c1"># Oxygen relaxation frequency (frO)</span>
+    <span class="n">frO</span> <span class="o">=</span> <span class="n">p_ratio</span> <span class="o">*</span> <span class="p">(</span><span class="mi">24</span> <span class="o">+</span> <span class="mf">4.04e4</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.02</span> <span class="o">+</span> <span class="n">h</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">0.391</span> <span class="o">+</span> <span class="n">h</span><span class="p">))</span>
+
+    <span class="c1"># Nitrogen relaxation frequency (frN)</span>
+    <span class="n">frN</span> <span class="o">=</span> <span class="n">p_ratio</span> <span class="o">*</span> <span class="p">(</span><span class="n">T_ratio</span><span class="o">**-</span><span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">9</span> <span class="o">+</span> <span class="mi">280</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">4.170</span> <span class="o">*</span> <span class="p">((</span><span class="n">T_ratio</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)))</span>
+
+    <span class="c1"># Attenuation coefficient alpha (dB/m)</span>
+    <span class="n">term1</span> <span class="o">=</span> <span class="mf">1.84e-11</span> <span class="o">*</span> <span class="p">(</span><span class="n">p_ratio</span><span class="o">**-</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">T_ratio</span><span class="o">**</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">term2</span> <span class="o">=</span> <span class="p">(</span><span class="n">T_ratio</span><span class="o">**-</span><span class="mf">2.5</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+        <span class="p">(</span><span class="mf">0.01275</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">2239.1</span> <span class="o">/</span> <span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">frO</span> <span class="o">+</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">frO</span><span class="p">)))</span> <span class="o">+</span>
+        <span class="p">(</span><span class="mf">0.1068</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">3352.0</span> <span class="o">/</span> <span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">frN</span> <span class="o">+</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">frN</span><span class="p">)))</span>
+    <span class="p">)</span>
+
+    <span class="n">alpha</span> <span class="o">=</span> <span class="mf">8.686</span> <span class="o">*</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">term1</span> <span class="o">+</span> <span class="n">term2</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">alpha</span></div>
 
 </pre></div>
 
