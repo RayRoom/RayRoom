@@ -8,3 +8,5 @@ from .ism import ImageSourceEngine
 from .hybrid import HybridRenderer
 from .fdtd import FDTDSolver
 from .spectral import SpectralRenderer
+from .radiosity import RadiositySolver
+from .render_radiosity import RadiosityRenderer
