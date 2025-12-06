@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/_static/RayRoom.jpg" alt="RayRoom Logo" width="300">
+  <img src="https://raw.githubusercontent.com/RayRoom/RayRoom/refs/heads/main/docs/_static/RayRoom.jpg" alt="RayRoom Logo" width="300">
 </p>
 
 A Python-based ray tracing acoustics simulator supporting complex room geometries, materials, and furniture.
@@ -71,13 +71,13 @@ Below we compare the output of **RayRoom**'s various rendering engines against *
 
 The audio samples illustrate how RayRoom captures richer late reverberation, diffuse energy, and frequency-dependent phenomena compared to standard ISM.
 
-| Engine | Audio |
-|--------|-------|
-| **PyRoomAcoustics**<br>*(Baseline)* | [Listen](docs/_static/pyroomacoustics.wav) |
-| **RayRoom Hybrid**<br>*(ISM + Ray Tracing)* | [Listen](docs/_static/hybrid_simulation.wav) |
-| **RayRoom Radiosity**<br>*(Diffuse Energy)* | [Listen](docs/_static/radiosity_simulation.wav) |
-| **RayRoom Spectral**<br>*(Wave + Geometric)* | [Listen](docs/_static/spectral_simulation.wav) |
-| **RayRoom Small Room**<br>*(Ray Tracing)* | [Listen](docs/_static/small_room_simulation.wav) |
+| Engine | Rendering Method | Audio |
+|--------|------------------|-------|
+| **PyRoomAcoustics** (Baseline) | Ray Tracing | <audio controls src="https://raw.githubusercontent.com/RayRoom/RayRoom/refs/heads/main/docs/_static/pyroomacoustics.wav"></audio> |
+| **RayRoom Hybrid** | ISM + Ray Tracing | <audio controls src="https://raw.githubusercontent.com/RayRoom/RayRoom/refs/heads/main/docs/_static/hybrid_simulation.wav"></audio> |
+| **RayRoom Radiosity** | Diffuse Energy | <audio controls src="https://raw.githubusercontent.com/RayRoom/RayRoom/refs/heads/main/docs/_static/radiosity_simulation.wav"></audio> |
+| **RayRoom Spectral** | Wave + Geometric | <audio controls src="https://raw.githubusercontent.com/RayRoom/RayRoom/refs/heads/main/docs/_static/spectral_simulation.wav"></audio> |
+| **RayRoom Small Room** | Ray Tracing | <audio controls src="https://raw.githubusercontent.com/RayRoom/RayRoom/refs/heads/main/docs/_static/small_room_simulation.wav"></audio> |
 
 ## Usage
 
