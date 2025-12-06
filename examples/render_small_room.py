@@ -15,9 +15,9 @@ def main():
     # Using 4m x 2m x 2.5m height
     print("Creating small room (4m x 2m x 2.5m)...")
     room = Room.create_shoebox([4, 2, 2.5], materials={
-        "floor": get_material("wood"),
-        "ceiling": get_material("plaster"),
-        "walls": get_material("brick")
+        "floor": get_material("heavy_curtain"),
+        "ceiling": get_material("heavy_curtain"),
+        "walls": get_material("wood")
     })
 
     # 2. Add Receiver (Microphone) - centered
