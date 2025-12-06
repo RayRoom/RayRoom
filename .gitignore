@@ -6,3 +6,6 @@ build/
 __pycache__/
 *.pyc
 venv/
+
+# Allow wav files from docs/_static
+!docs/_static/*.wav

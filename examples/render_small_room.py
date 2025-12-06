@@ -58,7 +58,8 @@ def main():
 
     # Assign Audio Files
     print("Assigning audio files...")
-    base_path = "examples/audios-indextts"
+    base_path = "examples/audios-trump-indextts15"
+    # base_path = "examples/audios-indextts"
     # base_path = "examples/audios"
 
     # Check if audio files exist, otherwise use placeholders or warnings

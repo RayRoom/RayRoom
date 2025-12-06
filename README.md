@@ -65,6 +65,20 @@ cd rayroom
 pip install -e .
 ```
 
+## Comparison & Demonstrations
+
+Below we compare the output of **RayRoom**'s various rendering engines against **PyRoomAcoustics** (with ray tracing on).
+
+The audio samples illustrate how RayRoom captures richer late reverberation, diffuse energy, and frequency-dependent phenomena compared to standard ISM.
+
+| Engine | Audio |
+|--------|-------|
+| **PyRoomAcoustics**<br>*(Baseline)* | [Listen](docs/_static/pyroomacoustics.wav) |
+| **RayRoom Hybrid**<br>*(ISM + Ray Tracing)* | [Listen](docs/_static/hybrid_simulation.wav) |
+| **RayRoom Radiosity**<br>*(Diffuse Energy)* | [Listen](docs/_static/radiosity_simulation.wav) |
+| **RayRoom Spectral**<br>*(Wave + Geometric)* | [Listen](docs/_static/spectral_simulation.wav) |
+| **RayRoom Small Room**<br>*(Ray Tracing)* | [Listen](docs/_static/small_room_simulation.wav) |
+
 ## Usage
 
 ### Simple Shoebox Room with Audio Rendering
