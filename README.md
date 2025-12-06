@@ -10,32 +10,44 @@ A Python-based ray tracing acoustics simulator supporting complex room geometrie
 
 ## Features
 
-- **Ray Tracing Engine**: Stochastic ray tracing for impulse response estimation.
+- **Ray Tracing Engine**: Stochastic ray tracing for late reflections.
+- **Image Source Method (ISM)**: Deterministic early specular reflections.
+- **Acoustic Radiosity**: Modeling of diffuse field energy exchange between surfaces.
+- **FDTD Wave Solver**: Accurate low-frequency wave simulation using Finite Difference Time Domain.
+- **Hybrid Rendering**: Combines methods for optimal accuracy and performance (ISM + Ray Tracing).
+- **Spectral Rendering**: Frequency-dependent strategy using Wave equation for low frequencies and Geometric methods for high frequencies.
 - **Room Creation**: Create shoebox rooms or complex polygons from corner lists.
 - **Materials**: Frequency-dependent absorption, transmission (transparency), and scattering coefficients.
 - **Objects**: Support for furniture, people (blockers), sources, and receivers (microphones).
-- **Transparency**: Walls can be partially transparent (transmission).
 
 ## Physics & Rendering
 
-### Ray Tracing with Air Absorption
-The simulation engine employs stochastic ray tracing to model sound propagation. Energy decay is modeled through:
-1.  **Geometric Divergence**: Naturally handled by the divergence of rays from the source.
-2.  **Air Absorption**: An explicit attenuation factor is applied to each ray segment based on distance. The implementation uses the full **ISO 9613-1** standard model to calculate the absorption coefficient based on frequency, **temperature**, **humidity**, and **pressure**.
-    *   Formula: $E_{new} = E_{old} \cdot 10^{-\alpha \cdot d / 10}$
-    *   Where $\alpha$ is the absorption coefficient derived from environmental conditions using ISO 9613-1.
+RayRoom implements multiple rendering strategies to model sound propagation accurately across different frequency bands and acoustic phenomena.
 
-### Deterministic Phase & Interference
-The renderer converts the collected energy histogram into a Room Impulse Response (RIR) using one of two phase strategies:
+### 1. Ray Tracing (Stochastic)
+Models sound as particles (rays) that bounce around the room.
+- **Geometric Divergence**: Naturally handled by the divergence of rays.
+- **Air Absorption**: ISO 9613-1 standard model based on temperature, humidity, and pressure.
+- **Scattering**: Walls scatter rays based on their scattering coefficient.
 
-1.  **Stochastic Phase (Default)**
-    -   **Method**: Randomly assigns positive or negative polarity ($+1/-1$) to each acoustic impulse.
-    -   **Purpose**: Models incoherent energy summation. This is accurate for high frequencies and complex reverberation where phase relationships are randomized.
+### 2. Image Source Method (ISM)
+Models specular reflections by mirroring sources across boundaries.
+- **Purpose**: Captures precise early reflections (echoes) that are crucial for spatial perception.
+- **Deterministic**: Unlike ray tracing, it finds exact reflection paths up to a specified order.
 
-2.  **Deterministic Phase (`interference=True`)**
-    -   **Method**: Assigns a fixed positive polarity ($+1$) to all impulses.
-    -   **Purpose**: Preserves precise path-length differences. When convolved with the audio signal, this allows for **coherent interference** (phase cancellation/reinforcement) and standing wave phenomena to emerge naturally from the geometry.
+### 3. Acoustic Radiosity
+A patch-based energy exchange method.
+- **Purpose**: Models the late diffuse reverberation field.
+- **Mechanism**: Divides walls into patches and solves the energy transfer matrix (view factors) to simulate diffuse inter-reflections.
 
+### 4. Finite Difference Time Domain (FDTD)
+Solves the acoustic wave equation on a 3D grid.
+- **Purpose**: Accurate simulation of low-frequency phenomena like standing waves, diffraction, and interference which geometric methods (Ray/ISM) miss.
+- **Mechanism**: Voxelizes the room and updates pressure fields over time steps.
+
+### 5. Hybrid Engines
+- **Hybrid Renderer**: Combines ISM (Early) and Ray Tracing (Late) for a complete impulse response.
+- **Spectral Renderer**: Splits the audio spectrum. Uses **FDTD** for low frequencies (Wave physics) and **Hybrid Geometric** (ISM+Ray) for high frequencies.
 
 ## Installation
 
@@ -77,7 +89,6 @@ renderer = AudioRenderer(room, fs=44100)
 renderer.set_source_audio(source, "input.wav")
 
 # Run Simulation
-# Generates Impulse Response and convolves with input audio
 outputs = renderer.render(n_rays=10000)
 
 # Save Result
@@ -86,13 +97,60 @@ if mixed_audio is not None:
     wavfile.write("output.wav", 44100, (mixed_audio * 32767).astype(np.int16))
 ```
 
+### Hybrid Rendering (ISM + Ray Tracing)
+
+Use the `HybridRenderer` to combine deterministic early reflections with stochastic late reverberation.
+
+```python
+from rayroom.hybrid import HybridRenderer
+
+# ... setup room ...
+
+renderer = HybridRenderer(room, fs=44100)
+renderer.set_source_audio(source, "input.wav")
+
+# ism_order=2 calculates exact reflections up to 2 bounces
+outputs = renderer.render(n_rays=20000, ism_order=2)
+```
+
+### Spectral Rendering (Wave + Geometric)
+
+Use the `SpectralRenderer` for high-fidelity simulation that accounts for wave physics at low frequencies.
+
+```python
+from rayroom.spectral import SpectralRenderer
+
+# ... setup room ...
+
+# crossover_freq determines where to switch from Wave to Geometric physics
+renderer = SpectralRenderer(room, fs=44100, crossover_freq=1000)
+renderer.set_source_audio(source, "input.wav")
+
+outputs = renderer.render(rir_duration=1.0)
+```
+
+### Radiosity Rendering (ISM + Diffuse Energy)
+
+Use `RadiosityRenderer` for smooth diffuse tails without ray sampling noise.
+
+```python
+from rayroom.render_radiosity import RadiosityRenderer
+
+# ... setup room ...
+
+renderer = RadiosityRenderer(room, fs=44100, patch_size=0.5)
+renderer.set_source_audio(source, "input.wav")
+
+outputs = renderer.render(ism_order=2)
+```
+
 ### Complex Geometry
 
 See `examples/polygon_room.py` for creating rooms from 2D floor plans.
 
 ## Structure
 
-- `rayroom/core.py`: Main simulation engine.
+- `rayroom/core.py`: Main Ray Tracing engine.
 - `rayroom/room.py`: Room and wall definitions.
 - `rayroom/objects.py`: Source, Receiver, Furniture classes.
 - `rayroom/materials.py`: Material properties.
@@ -100,6 +158,12 @@ See `examples/polygon_room.py` for creating rooms from 2D floor plans.
 - `rayroom/audio.py`: Audio rendering and processing.
 - `rayroom/physics.py`: Acoustic physics models.
 - `rayroom/visualize.py`: Visualization tools.
+- `rayroom/ism.py`: Image Source Method engine.
+- `rayroom/radiosity.py`: Acoustic Radiosity solver.
+- `rayroom/render_radiosity.py`: Radiosity Renderer.
+- `rayroom/fdtd.py`: FDTD Wave solver.
+- `rayroom/hybrid.py`: Hybrid Geometric Renderer.
+- `rayroom/spectral.py`: Spectral Hybrid Renderer.
 
 ## Contributing
 
