@@ -177,8 +177,29 @@ class FDTDSolver:
         self.is_air = mask
 
         # Also handle furniture (as obstacles/solids)
-        # for furn in self.room.furniture:
-        #     pass
+        for furn in self.room.furniture:
+            if not hasattr(furn, 'vertices') or len(furn.vertices) == 0:
+                continue
+
+            # Get the Axis-Aligned Bounding Box (AABB) of the furniture
+            min_bounds = np.min(furn.vertices, axis=0)
+            max_bounds = np.max(furn.vertices, axis=0)
+
+            # Convert world coordinates to grid indices
+            min_idx = self._world_to_grid(min_bounds)
+            max_idx = self._world_to_grid(max_bounds)
+
+            # Clip to grid dimensions
+            min_idx = np.maximum(0, min_idx)
+            max_idx = np.minimum(np.array(self.grid_shape) - 1, max_idx)
+
+            # Set the region to solid (not air)
+            if np.all(max_idx > min_idx):
+                self.is_air[
+                    min_idx[0]:max_idx[0]+1,
+                    min_idx[1]:max_idx[1]+1,
+                    min_idx[2]:max_idx[2]+1
+                ] = False
 
         print(f"Voxelization complete. Air volume fraction: {np.mean(self.is_air):.2%}")
 
