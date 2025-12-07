@@ -11,9 +11,9 @@ The core principle is to emit thousands of rays from a sound source in random di
 When a ray with energy $E_{i}$ hits a surface, its energy is reduced by two primary mechanisms:
 
 -   **Absorption:** A portion of the energy is absorbed by the material. The reflected energy $E_{r}$ is scaled by the material's absorption coefficient $\alpha$:
-    $$
-    E_r = E_i (1 - \alpha)
-    $$
+
+    $E_r = E_i (1 - \alpha)$
+    
 -   **Geometric Spreading:** In a real environment, sound intensity decreases with the square of the distance from the source. In this ray tracer, this is implicitly handled by the decreasing density of rays as they travel away from the source.
 
 ### 2. Reflection Modeling
@@ -21,9 +21,9 @@ When a ray with energy $E_{i}$ hits a surface, its energy is reduced by two prim
 Upon hitting a surface, the ray's new direction is determined by the material's scattering coefficient $s$, which ranges from 0 (perfectly specular) to 1 (perfectly diffuse).
 
 -   **Specular Reflection:** If the reflection is specular (a random number is less than $s$), the outgoing angle equals the incoming angle. The reflected vector $\mathbf{v}_r$ is calculated from the incident vector $\mathbf{v}_i$ and the surface normal $\mathbf{n}$ as:
-    $$
-    \mathbf{v}_r = \mathbf{v}_i - 2 (\mathbf{v}_i \cdot \mathbf{n}) \mathbf{n}
-    $$
+
+    $\mathbf{v}_r = \mathbf{v}_i - 2 (\mathbf{v}_i \cdot \mathbf{n}) \mathbf{n}$
+
 -   **Diffuse Reflection:** If the reflection is diffuse, the ray is scattered in a random new direction. A common and physically-based choice is to sample the new direction from a cosine-weighted distribution over the hemisphere defined by the surface normal, according to **Lambert's Cosine Law**.
 
 ## Implementation Details
