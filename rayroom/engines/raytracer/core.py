@@ -1,13 +1,14 @@
 import numpy as np
 from tqdm import tqdm
-from ...physics import air_absorption_coefficient, C_SOUND
-from ...objects import Receiver, AmbisonicReceiver
-from ...geometry import (
+from ...core.physics import air_absorption_coefficient
+from ...core.constants import C_SOUND
+from ...core.geometry import (
     ray_plane_intersection,
     is_point_in_polygon,
     reflect_vector,
-    random_direction_hemisphere
+    random_direction_hemisphere,
 )
+from ...room.objects import Receiver, AmbisonicReceiver
 
 
 class RayTracer:

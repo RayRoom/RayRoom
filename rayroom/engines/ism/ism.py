@@ -1,7 +1,8 @@
 import numpy as np
-from ...objects import AmbisonicReceiver, Receiver
-from ...physics import C_SOUND, air_absorption_coefficient
-from ...geometry import ray_plane_intersection, is_point_in_polygon, normalize
+from ...room.objects import AmbisonicReceiver, Receiver
+from ...core.constants import C_SOUND
+from ...core.physics import air_absorption_coefficient
+from ...core.geometry import ray_plane_intersection, is_point_in_polygon, normalize
 
 
 class ImageSource:

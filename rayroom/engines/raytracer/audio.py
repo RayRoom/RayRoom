@@ -1,10 +1,10 @@
 import os
 import numpy as np
 from .core import RayTracer
-from ...objects import AmbisonicReceiver
+from ...room.objects import AmbisonicReceiver
 from scipy.io import wavfile
 from scipy.signal import fftconvolve
-from ...utils import generate_rir
+from ...core.utils import generate_rir
 
 
 class RaytracingRenderer:

@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
-from ...geometry import normalize
-from ...physics import C_SOUND
+from ...core.geometry import normalize
+from ...core.constants import C_SOUND
 
 class RadiositySolver:
     """

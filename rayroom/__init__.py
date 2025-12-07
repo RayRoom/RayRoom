@@ -1,10 +1,11 @@
-from .room import Room
+from .room.base import Room
+from .room.visualize import plot_room
+from .room.materials import Material, get_material
+from .room.objects import Source, Receiver, Furniture, Person, AmbisonicReceiver
+from .core.utils import generate_rir
+from .core.constants import C_SOUND
 from .engines.raytracer.core import RayTracer
-from .visualize import plot_room
-from .materials import Material, get_material
-from .objects import Source, Receiver, Furniture, Person, AmbisonicReceiver
 from .engines.raytracer.audio import RaytracingRenderer
-from .utils import generate_rir
 from .engines.ism.ism import ImageSourceEngine
 from .engines.hybrid.hybrid import HybridRenderer
 from .engines.spectral.spectral import SpectralRenderer

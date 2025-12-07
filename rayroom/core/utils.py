@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def generate_rir(histogram, fs=44100, duration=2.0, random_phase=True):
     """
     Generate a Room Impulse Response (RIR) from an energy histogram.

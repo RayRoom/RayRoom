@@ -4,8 +4,8 @@ from scipy.signal import fftconvolve
 from scipy.io import wavfile
 from ..raytracer.core import RayTracer
 from ..ism import ImageSourceEngine
-from ...objects import AmbisonicReceiver
-from ...utils import generate_rir
+from ...room.objects import AmbisonicReceiver
+from ...core.utils import generate_rir
 
 
 class HybridRenderer:

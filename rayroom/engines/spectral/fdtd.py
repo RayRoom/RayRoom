@@ -1,6 +1,6 @@
 import numpy as np
 from tqdm import tqdm
-from ...physics import C_SOUND
+from ...core.constants import C_SOUND
 
 
 class FDTDSolver:
