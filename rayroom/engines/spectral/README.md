@@ -15,15 +15,17 @@ The Spectral Renderer leverages the best of both worlds by splitting the audio s
 
 FDTD is a numerical analysis technique that solves the acoustic wave equation by discretizing both space and time. The room is represented as a 3D grid of points (voxels), and the sound pressure at each point is updated in discrete time steps. The core of the method is the linearized, lossless acoustic wave equation:
 
-\[ \frac{\partial^2 p}{\partial t^2} = c^2 \nabla^2 p \]
+$$
+\frac{\partial^2 p}{\partial t^2} = c^2 \nabla^2 p
+$$
 
 where:
--   \\( p \\) is the acoustic pressure.
--   \\( t \\) is time.
--   \\( c \\) is the speed of sound.
--   \\( \nabla^2 \\) is the Laplace operator, representing the spatial derivatives.
+-   $p$ is the acoustic pressure.
+-   $t$ is time.
+-   $c$ is the speed of sound.
+-   $\nabla^2$ is the Laplace operator, representing the spatial derivatives.
 
-This continuous equation is approximated using central finite differences, leading to an explicit update equation for the pressure \\( p \\) at each grid point \\( (i, j, k) \\) at time step \\( n+1 \\), based on its own previous state and the state of its neighbors.
+This continuous equation is approximated using central finite differences, leading to an explicit update equation for the pressure $p$ at each grid point $(i, j, k)$ at time step $n+1$, based on its own previous state and the state of its neighbors.
 
 ### 2. Spectral Decomposition and Merging
 
@@ -36,8 +38,10 @@ The process involves several steps:
 
 -   **Voxelization:** The room geometry, including all objects and material properties, is discretized onto the 3D grid. This process is a key step that can affect the accuracy of the simulation.
 -   **Boundary Conditions:** The interaction of sound waves with the room surfaces is handled by implementing impedance boundary conditions on the grid. This allows the model to account for the frequency-dependent absorption of the materials.
--   **Stability (Courant Condition):** For the FDTD simulation to be numerically stable, the time step \\( \Delta t \\) and the spatial grid spacing \\( \Delta x \\) must satisfy the Courant-Friedrichs-Lewy (CFL) condition:
-    \[ c \Delta t \sqrt{\frac{1}{\Delta x^2} + \frac{1}{\Delta y^2} + \frac{1}{\Delta z^2}} \le 1 \]
+-   **Stability (Courant Condition):** For the FDTD simulation to be numerically stable, the time step $\Delta t$ and the spatial grid spacing $\Delta x$ must satisfy the Courant-Friedrichs-Lewy (CFL) condition:
+    $$
+    c \Delta t \sqrt{\frac{1}{\Delta x^2} + \frac{1}{\Delta y^2} + \frac{1}{\Delta z^2}} \le 1
+    $$
 -   **Dispersion:** At higher frequencies (relative to the grid spacing), the numerical simulation can introduce inaccuracies where waves of different frequencies travel at slightly different speeds. This is known as numerical dispersion and limits the maximum frequency that an FDTD grid can accurately simulate, reinforcing the need for a hybrid approach.
 
 ## Seminal Papers

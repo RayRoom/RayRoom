@@ -12,25 +12,29 @@ The final RIR is created by cross-fading from the ISM output to the ray tracing 
 
 ### 1. Image Source Method (ISM)
 
-The position of an image source \\( \mathbf{s}' \\) of order \\( N \\) is found by recursively reflecting the source position \\( \mathbf{s} \\) across the planes of the room walls. For a single reflection across a wall with normal \\( \mathbf{n} \\) and a point \\( \mathbf{p} \\) on the wall, the image source position is:
+The position of an image source $s'$ of order $N$ is found by recursively reflecting the source position $s$ across the planes of the room walls. For a single reflection across a wall with normal $n$ and a point $p$ on the wall, the image source position is:
 
-\[ \mathbf{s}' = \mathbf{s} - 2 ((\mathbf{s} - \mathbf{p}) \cdot \mathbf{n}) \mathbf{n} \]
+$$
+\mathbf{s}' = \mathbf{s} - 2 ((\mathbf{s} - \mathbf{p}) \cdot \mathbf{n}) \mathbf{n}
+$$
 
-The distance from an image source to the receiver \\( \mathbf{r} \\) gives the travel time for a specific reflection path. The pressure contribution \\( p(t) \\) of each image source is attenuated by distance and wall absorption, and its arrival is delayed by the path length.
+The distance from an image source to the receiver $r$ gives the travel time for a specific reflection path. The pressure contribution $p(t)$ of each image source is attenuated by distance and wall absorption, and its arrival is delayed by the path length.
 
 ### 2. Stochastic Ray Tracing
 
-Each ray carries a portion of the source's energy. When a ray hits a surface, its energy \\( E_{i} \\) is reduced by the wall's absorption coefficient \\( \alpha \\). The reflected energy \\( E_{r} \\) is:
+Each ray carries a portion of the source's energy. When a ray hits a surface, its energy $E_{i}$ is reduced by the wall's absorption coefficient $\alpha$. The reflected energy $E_{r}$ is:
 
-\[ E_r = E_i (1 - \alpha) \]
+$$
+E_r = E_i (1 - \alpha)
+$$
 
-The direction of the reflected ray is determined by a combination of specular reflection (using Snell's Law) and diffuse reflection (scattering), governed by the material's scattering coefficient \\( s \\). A random number determines whether the reflection is specular or diffuse. For diffuse reflections, the new direction is often chosen from a cosine-weighted distribution over the hemisphere (Lambert's Law).
+The direction of the reflected ray is determined by a combination of specular reflection (using Snell's Law) and diffuse reflection (scattering), governed by the material's scattering coefficient $s$. A random number determines whether the reflection is specular or diffuse. For diffuse reflections, the new direction is often chosen from a cosine-weighted distribution over the hemisphere (Lambert's Law).
 
 ## Implementation Details
 
 - **Transition:** The renderer combines the RIR from ISM (up to a user-defined `ism_order`) with the RIR from the ray tracer for the late reverberation.
 - **Air Absorption:** The energy loss due to air is modeled according to the **ISO 9613-1** standard, which accounts for frequency, temperature, humidity, and pressure.
-- **Material Properties:** Wall materials have frequency-dependent absorption \\( \alpha(f) \\) and scattering \\( s(f) \\) coefficients, allowing for more realistic acoustic modeling.
+- **Material Properties:** Wall materials have frequency-dependent absorption $\alpha(f)$ and scattering $s(f)$ coefficients, allowing for more realistic acoustic modeling.
 
 ## Seminal Papers
 

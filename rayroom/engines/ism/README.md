@@ -6,24 +6,28 @@ This method is particularly powerful for modeling the early part of a Room Impul
 
 ## Core Equations & Principles
 
-The fundamental principle of ISM is that a specular reflection path from a source \\( \mathbf{s} \\) to a receiver \\( \mathbf{r} \\) off a planar surface is equivalent to a straight-line path from a "virtual" or "image" source \\( \mathbf{s}' \\) to the receiver.
+The fundamental principle of ISM is that a specular reflection path from a source $s$ to a receiver $r$ off a planar surface is equivalent to a straight-line path from a "virtual" or "image" source $s'$ to the receiver.
 
 ### 1. Image Source Calculation
 
-An image source is found by reflecting the position of the real source across a planar wall. For a source at position \\( \mathbf{s} \\) and a wall represented by a point \\( \mathbf{p} \\) on its plane and a normal vector \\( \mathbf{n} \\), the first-order image source \\( \mathbf{s}' \\) is located at:
+An image source is found by reflecting the position of the real source across a planar wall. For a source at position $s$ and a wall represented by a point $p$ on its plane and a normal vector $n$, the first-order image source $s'$ is located at:
 
-\[ \mathbf{s}' = \mathbf{s} - 2 ((\mathbf{s} - \mathbf{p}) \cdot \mathbf{n}) \mathbf{n} \]
+$$
+\mathbf{s}' = \mathbf{s} - 2 ((\mathbf{s} - \mathbf{p}) \cdot \mathbf{n}) \mathbf{n}
+$$
 
-Higher-order reflections are found by recursively reflecting these image sources across other walls. An image source of order \\( N \\) represents a sound path that has undergone \\( N \\) reflections.
+Higher-order reflections are found by recursively reflecting these image sources across other walls. An image source of order $N$ represents a sound path that has undergone $N$ reflections.
 
 ### 2. Path Validation and RIR Construction
 
 Once an image source is created, a straight line is drawn from it to the receiver. For this path to be valid, this line segment must intersect the *actual* wall panel that created the image source (and for higher orders, all parent panels in the reflection sequence).
 
 If the path is valid, its contribution to the RIR is calculated:
--   **Delay:** The arrival time \\( t \\) is determined by the total path length \\( d \\) from the image source to the receiver and the speed of sound \\( c \\): \\( t = d / c \\).
--   **Amplitude:** The initial amplitude is attenuated by geometric spreading (\\( 1/d \\)) and the cumulative absorption of all the walls involved in the reflection path. The pressure \\( p \\) is attenuated by the product of the reflection coefficients \\( \beta_k = \sqrt{1 - \alpha_k} \\) of each wall \\( k \\):
-    \[ A = \frac{1}{d} \prod_{k=1}^{N} \beta_k \]
+-   **Delay:** The arrival time $t$ is determined by the total path length $d$ from the image source to the receiver and the speed of sound $c$: $t = d / c$.
+-   **Amplitude:** The initial amplitude is attenuated by geometric spreading ($1/d$) and the cumulative absorption of all the walls involved in the reflection path. The pressure $p$ is attenuated by the product of the reflection coefficients $\beta_k = \sqrt{1 - \alpha_k}$ of each wall $k$:
+    $$
+    A = \frac{1}{d} \prod_{k=1}^{N} \beta_k
+    $$
 
 ## Implementation Details
 

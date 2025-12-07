@@ -6,26 +6,30 @@ The core idea is to discretize all surfaces in the room (walls, furniture) into 
 
 ## Core Equations & Principles
 
-The fundamental equation of acoustic radiosity describes the "shooting" of sound energy from a patch \\( i \\). The total energy \\( B_i \\) leaving patch \\( i \\) per unit area is the sum of its self-emitted energy \\( E_i \\) (from direct sound sources) and the reflected energy it receives from all other patches \\( j \\) in the scene:
+The fundamental equation of acoustic radiosity describes the "shooting" of sound energy from a patch $i$. The total energy $B_i$ leaving patch $i$ per unit area is the sum of its self-emitted energy $E_i$ (from direct sound sources) and the reflected energy it receives from all other patches $j$ in the scene:
 
-\[ B_i = E_i + \rho_i \sum_{j=1}^{N} B_j F_{ij} \]
+$$
+B_i = E_i + \rho_i \sum_{j=1}^{N} B_j F_{ij}
+$$
 
 where:
--   \\( B_i \\) is the radiosity of patch \\( i \\) (Energy/Area).
--   \\( E_i \\) is the excitance of patch \\( i \\) (Energy/Area) from direct sources.
--   \\( \rho_i \\) is the reflectivity of patch \\( i \\), where \\( \rho = 1 - \alpha \\) (\\( \alpha \\) is the absorption coefficient).
--   \\( B_j \\) is the radiosity of patch \\( j \\).
--   \\( F_{ij} \\) is the **view factor** (or form factor) from patch \\( i \\) to patch \\( j \\).
+-   $B_i$ is the radiosity of patch $i$ (Energy/Area).
+-   $E_i$ is the excitance of patch $i$ (Energy/Area) from direct sources.
+-   $\rho_i$ is the reflectivity of patch $i$, where $\rho = 1 - \alpha$ ($\alpha$ is the absorption coefficient).
+-   $B_j$ is the radiosity of patch $j$.
+-   $F_{ij}$ is the **view factor** (or form factor) from patch $i$ to patch $j$.
 
-### The View Factor \\( F_{ij} \\)
+### The View Factor $F_{ij}$
 
-The view factor is the crucial geometric term that represents the fraction of energy leaving patch \\( i \\) that arrives directly at patch \\( j \\). For two differential patches \\( dA_i \\) and \\( dA_j \\), it is given by:
+The view factor is the crucial geometric term that represents the fraction of energy leaving patch $i$ that arrives directly at patch $j$. For two differential patches $dA_i$ and $dA_j$, it is given by:
 
-\[ F_{d A_i \rightarrow d A_j} = \frac{\cos(\theta_i) \cos(\theta_j)}{\pi r^2} H_{ij} d A_j \]
+$$
+F_{d A_i \rightarrow d A_j} = \frac{\cos(\theta_i) \cos(\theta_j)}{\pi r^2} H_{ij} d A_j
+$$
 
--   \\( \theta_i \\) and \\( \theta_j \\) are the angles between the patch normals and the line connecting them.
--   \\( r \\) is the distance between the patches.
--   \\( H_{ij} \\) is a visibility term (1 if patches can see each other, 0 otherwise).
+-   $\theta_i$ and $\theta_j$ are the angles between the patch normals and the line connecting them.
+-   $r$ is the distance between the patches.
+-   $H_{ij}$ is a visibility term (1 if patches can see each other, 0 otherwise).
 
 Solving the system of linear equations for all patches provides the steady-state energy distribution. For a time-domain impulse response, the simulation is run iteratively, propagating energy between patches over discrete time steps.
 
