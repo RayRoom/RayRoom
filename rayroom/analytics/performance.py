@@ -1,19 +1,33 @@
+import os
 import time
 import tracemalloc
-import os
-import numpy as np
 
 
 class PerformanceMonitor:
-    """
-    A context manager to measure runtime and peak memory usage of a code block.
+    """A context manager for benchmarking code.
 
-    Usage:
-    with PerformanceMonitor() as monitor:
-        # Code to benchmark
-        ...
-    print(f"Runtime: {monitor.runtime_s:.2f}s")
-    print(f"Peak Memory: {monitor.peak_memory_mb:.2f}MB")
+    This class provides a simple way to measure the execution time and peak
+    memory usage of a block of code. It is designed to be used with the
+    `with` statement.
+
+    Responsibilities:
+      * Start and stop timing and memory tracing.
+      * Store the runtime in seconds.
+      * Store the peak memory usage in megabytes.
+
+    Example:
+
+        .. code-block:: python
+
+            import rayroom as rt
+
+            with rt.analytics.performance.PerformanceMonitor() as monitor:
+                # Code to be benchmarked
+                result = [i**2 for i in range(1000000)]
+
+            print(f"Execution time: {monitor.runtime_s:.4f} seconds")
+            print(f"Peak memory usage: {monitor.peak_memory_mb:.2f} MB")
+
     """
     def __init__(self):
         self.runtime_s = 0
@@ -33,13 +47,29 @@ class PerformanceMonitor:
 
 
 def plot_performance_results(results, param_name, output_dir, param_is_log=False):
-    """
-    Plots runtime and memory usage from benchmark results and saves them to files.
+    """Plots and saves performance benchmark results.
 
-    :param results: A dictionary with engine names as keys and benchmark data as values.
-    :param param_name: The name of the parameter that was varied (e.g., "Number of Rays").
+    This function generates and saves plots for runtime and peak memory usage
+    based on benchmark data. It is useful for visualizing how performance
+    varies with a given parameter.
+
+    Responsibilities:
+      * Generate a plot for runtime vs. the varied parameter.
+      * Generate a plot for memory usage vs. the varied parameter.
+      * Save the plots to the specified directory.
+      * Handle logarithmic scales for the parameter axis.
+
+    :param results: A dictionary containing the benchmark data. The keys are
+                    engine names, and the values are dictionaries where keys
+                    are parameter values and values are performance metrics.
+    :type results: dict
+    :param param_name: The name of the parameter that was varied during the
+                       benchmark (e.g., "Number of Rays").
+    :type param_name: str
     :param output_dir: The directory where the plots will be saved.
-    :param param_is_log: Whether to use a logarithmic scale for the parameter axis.
+    :type output_dir: str
+    :param param_is_log: Whether to use a logarithmic scale for the x-axis.
+    :type param_is_log: bool, optional
     """
     try:
         import matplotlib.pyplot as plt
@@ -50,7 +80,7 @@ def plot_performance_results(results, param_name, output_dir, param_is_log=False
     os.makedirs(output_dir, exist_ok=True)
 
     engine_names = list(results.keys())
-    
+
     # --- Plot Runtime ---
     plt.figure(figsize=(10, 6))
     for engine in engine_names:

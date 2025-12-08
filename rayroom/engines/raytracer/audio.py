@@ -1,3 +1,16 @@
+"""
+This module provides a high-level audio rendering pipeline for the ray tracing engine.
+
+The `RaytracingRenderer` class orchestrates the entire process of simulating
+the acoustics of a room for a given set of sources and receivers. It manages:
+
+  - Assigning audio data to sound sources.
+  - Running the core `RayTracer` to generate energy histograms for each receiver.
+  - Converting these histograms into Room Impulse Responses (RIRs).
+  - Convolving the RIRs with the source audio.
+  - Mixing the results from all sources to produce the final audio output for
+    each receiver.
+"""
 import os
 import numpy as np
 from scipy.io import wavfile
@@ -9,26 +22,57 @@ from ...core.utils import generate_rir
 
 
 class RaytracingRenderer:
-    """
-    Handles the audio rendering pipeline for a Room using ray tracing.
+    """Handles the audio rendering pipeline for a Room using ray tracing.
 
-    Manages sources, audio data, ray tracing, Room Impulse Response (RIR) generation,
-    convolution, and mixing to produce the final audio output for each receiver.
+    This class provides a convenient interface to run a full acoustic simulation.
+    It takes a `Room` object, manages audio sources, runs the ray tracing
+    simulation, generates RIRs, and produces the final convolved and mixed audio
+    for each receiver in the room.
+
+    Responsibilities:
+      * Manage audio data for multiple sound sources.
+      * Control the `RayTracer` engine.
+      * Generate RIRs from ray tracing histograms.
+      * Perform convolution of RIRs with source audio.
+      * Mix the audio from multiple sources for each receiver.
+
+    Example:
+
+        .. code-block:: python
+
+            import rayroom as rt
+            import numpy as np
+
+            # Create a room with a source and a receiver
+            room = rt.room.ShoeBox([8, 6, 3])
+            source = room.add_source([4, 3, 1.5])
+            receiver = room.add_receiver([2, 2, 1.5])
+            
+            # Initialize the renderer
+            renderer = rt.engines.raytracer.RaytracingRenderer(room)
+            
+            # Assign an audio signal to the source
+            sample_rate = 44100
+            source_audio = np.random.randn(sample_rate * 2)  # 2s of white noise
+            renderer.set_source_audio(source, source_audio)
+            
+            # Run the rendering process
+            outputs, rirs = renderer.render(n_rays=10000, rir_duration=1.0)
+            
+            # `outputs` contains the rendered audio for the receiver
+            # `rirs` contains the generated RIR for the receiver
+
+    :param room: The `Room` object to be simulated.
+    :type room: rayroom.room.Room
+    :param fs: The master sampling rate for the simulation. Defaults to 44100.
+    :type fs: int, optional
+    :param temperature: The ambient temperature in Celsius. Defaults to 20.0.
+    :type temperature: float, optional
+    :param humidity: The relative humidity in percent. Defaults to 50.0.
+    :type humidity: float, optional
     """
 
     def __init__(self, room, fs=44100, temperature=20.0, humidity=50.0):
-        """
-        Initialize the RaytracingRenderer.
-
-        :param room: The Room object to render.
-        :type room: rayroom.room.Room
-        :param fs: Sampling rate in Hz. Defaults to 44100.
-        :type fs: int
-        :param temperature: Temperature in Celsius. Defaults to 20.0.
-        :type temperature: float
-        :param humidity: Relative humidity in percent. Defaults to 50.0.
-        :type humidity: float
-        """
         self._tracer = RayTracer(room, temperature, humidity)
         self.room = room
         self.fs = fs
@@ -37,15 +81,17 @@ class RaytracingRenderer:
         self.last_rirs = {}  # Attribute to store RIRs
 
     def set_source_audio(self, source, audio, gain=1.0):
-        """
-        Assign audio data to a Source object.
+        """Assigns an audio signal to a source.
 
-        :param source: The Source object in the room.
-        :type source: rayroom.objects.Source
-        :param audio: Audio data as a numpy array or a path to a WAV file.
-        :type audio: np.ndarray or str
-        :param gain: Linear gain factor for this source's audio. Defaults to 1.0.
-        :type gain: float
+        The audio can be provided as a file path to a WAV file or as a
+        NumPy array.
+
+        :param source: The `Source` object to which the audio will be assigned.
+        :type source: rayroom.room.objects.Source
+        :param audio: The audio data, either as a path to a WAV file or a NumPy array.
+        :type audio: str or np.ndarray
+        :param gain: A linear gain factor to apply to the audio. Defaults to 1.0.
+        :type gain: float, optional
         """
         if isinstance(audio, str):
             # Load from file
@@ -57,6 +103,16 @@ class RaytracingRenderer:
         self.source_gains[source] = gain
 
     def _load_wav(self, path):
+        """Loads and prepares a WAV file for simulation.
+
+        This internal method reads a WAV file, converts it to a mono,
+        floating-point signal, and checks for sample rate consistency.
+
+        :param path: The file path to the WAV file.
+        :type path: str
+        :return: The loaded audio data as a NumPy array.
+        :rtype: np.ndarray
+        """
         if not os.path.exists(path):
             raise FileNotFoundError(f"Audio file not found: {path}")
 
@@ -84,30 +140,39 @@ class RaytracingRenderer:
 
     def render(self, n_rays=20000, max_hops=50, rir_duration=2.0,
                verbose=True, record_paths=False, interference=False):
-        """
-        Run the full rendering pipeline.
+        """Runs the full ray tracing and audio rendering pipeline.
 
-        1. Traces rays for each source.
-        2. Generates an energy histogram for each receiver.
-        3. Converts histograms to RIRs.
-        4. Convolves source audio with RIRs.
-        5. Mixes output for each receiver.
+        This is the main method to execute a simulation. It performs the following steps:
+        1. Traces rays for each source with assigned audio.
+        2. Generates an energy/amplitude histogram for each receiver.
+        3. Converts these histograms into RIRs.
+        4. Convolves the source audio with the corresponding RIRs.
+        5. Mixes the resulting audio for each receiver.
 
-        :param n_rays: Number of rays per source. Defaults to 20000.
-        :type n_rays: int
-        :param max_hops: Maximum reflections. Defaults to 50.
-        :type max_hops: int
-        :param rir_duration: Duration of the generated Impulse Response in seconds. Defaults to 2.0.
-        :type rir_duration: float
-        :param verbose: Print progress. Defaults to True.
-        :type verbose: bool
-        :param record_paths: Return ray paths for visualization. Defaults to False.
-        :type record_paths: bool
-        :param interference: If True, enables deterministic phase for interference effects. Defaults to True.
-        :type interference: bool
-        :return: If record_paths is False, returns a dict {receiver_name: mixed_audio_array}.
-                 If True, returns tuple (receiver_outputs, paths_data).
-        :rtype: dict or tuple
+        :param n_rays: The number of rays to trace for each source.
+                       Defaults to 20000.
+        :type n_rays: int, optional
+        :param max_hops: The maximum number of reflections for each ray.
+                         Defaults to 50.
+        :type max_hops: int, optional
+        :param rir_duration: The duration of the generated RIRs in seconds.
+                             Defaults to 2.0.
+        :type rir_duration: float, optional
+        :param verbose: If `True`, print progress information. Defaults to `True`.
+        :type verbose: bool, optional
+        :param record_paths: If `True`, the paths of the rays will be recorded
+                             and returned. This can use a lot of memory.
+                             Defaults to `False`.
+        :type record_paths: bool, optional
+        :param interference: If `True`, phase is preserved in the RIR generation,
+                             allowing for interference effects. Setting to `False`
+                             (the default for `generate_rir`) results in an
+                             energy-based RIR. Defaults to `False`.
+        :type interference: bool, optional
+        :return: A tuple containing a dictionary of receiver outputs (audio) and a
+                 dictionary of the last computed RIR for each receiver. If
+                 `record_paths` is `True`, the ray paths are also returned.
+        :rtype: tuple
         """
         # Initialize outputs for each receiver
         receiver_outputs = {rx.name: None for rx in self.room.receivers}

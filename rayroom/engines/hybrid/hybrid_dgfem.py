@@ -19,7 +19,6 @@ Reference:
     - Savioja & Svensson (2015) "Overview of geometrical room acoustic modeling" 
       https://acris.aalto.fi/ws/portalfiles/portal/6761044/Overview_of_geometrical.pdf
 """
-
 import numpy as np
 from typing import Tuple, Optional, List, Dict
 from dataclasses import dataclass
@@ -37,7 +36,34 @@ except ImportError:
 
 @dataclass
 class DGFEMConfig:
-    """Configuration for DG-FEM solver"""
+    """Configuration settings for the DG-FEM solver.
+
+    This dataclass holds all the parameters that control the behavior and
+    accuracy of the DG-FEM simulation.
+
+    :param polynomial_order: The order of the polynomial basis functions used for
+                             spatial discretization (N). Higher orders increase
+                             accuracy but also computational cost. Defaults to 3.
+    :type polynomial_order: int
+    :param cfl_number: The Courant-Friedrichs-Lewy (CFL) number, which controls
+                       the stability of the time-stepping scheme. Should be
+                       less than 1. Defaults to 0.5.
+    :type cfl_number: float
+    :param use_gpu: If `True`, the solver will attempt to use a CUDA-enabled GPU
+                    for computations via CuPy. Defaults to `False`.
+    :type use_gpu: bool
+    :param num_threads: The number of CPU threads to use for parallelization
+                        (currently a placeholder). Defaults to 4.
+    :type num_threads: int
+    :param absorbing_layers: The number of Perfectly Matched Layers (PML) to use
+                             for absorbing boundary conditions (currently a
+                             placeholder). Defaults to 10.
+    :type absorbing_layers: int
+    :param time_integrator: The time integration scheme to use. Currently, only
+                            "RK4" (4th-order Runge-Kutta) is implemented.
+                            Defaults to "RK4".
+    :type time_integrator: str
+    """
     polynomial_order: int = 3  # Polynomial order (N=1,2,3,...)
     cfl_number: float = 0.5    # CFL condition for stability
     use_gpu: bool = False      # Enable GPU acceleration
@@ -47,21 +73,23 @@ class DGFEMConfig:
 
 
 class TetrahedralElement:
-    """
-    Single tetrahedral element for DG-FEM
-    
-    Reference element: vertices at (0,0,0), (1,0,0), (0,1,0), (0,0,1)
+    """Represents a single tetrahedral element in the DG-FEM mesh.
+
+    This class stores the geometric properties of a single tetrahedron,
+    such as its vertices, volume, and face normals. These properties are
+    pre-computed and used in the DG-FEM solver.
+
+    The element is defined in physical space, but calculations involving
+    basis functions are often performed on a reference element.
+
+    :param vertices: The coordinates of the four vertices of the tetrahedron,
+                     as a (4, 3) NumPy array.
+    :type vertices: np.ndarray
+    :param element_id: A unique integer identifier for the element.
+    :type element_id: int
     """
     
     def __init__(self, vertices: np.ndarray, element_id: int):
-        """
-        Parameters
-        ----------
-        vertices : ndarray (4, 3)
-            Coordinates of 4 vertices
-        element_id : int
-            Element identifier
-        """
         self.vertices = vertices
         self.element_id = element_id
         
@@ -69,7 +97,11 @@ class TetrahedralElement:
         self.compute_geometry()
     
     def compute_geometry(self):
-        """Compute Jacobian, volume, face normals"""
+        """Computes and stores the geometric properties of the tetrahedron.
+
+        This includes the Jacobian of the transformation from the reference
+        element, the volume, the inverse Jacobian, and face properties.
+        """
         v0, v1, v2, v3 = self.vertices
         
         # Jacobian matrix (for coordinate transformation)
@@ -86,7 +118,7 @@ class TetrahedralElement:
         self.compute_faces()
     
     def compute_faces(self):
-        """Compute face normals and areas"""
+        """Computes the normal vectors and areas of the four faces."""
         v0, v1, v2, v3 = self.vertices
         
         # 4 faces of tetrahedron
@@ -116,10 +148,20 @@ class TetrahedralElement:
 
 
 class NodalBasis:
-    """
-    Nodal basis functions for DG-FEM on tetrahedra
-    
-    Uses Lagrange polynomials on Warp & Blend nodes
+    """Manages the nodal basis functions for a tetrahedral element.
+
+    This class is responsible for generating the locations of the nodes
+    within a reference tetrahedron and for pre-computing the derivative
+    matrices of the basis functions. The basis is formed by Lagrange
+    polynomials, which are 1 at one node and 0 at all others.
+
+    Responsibilities:
+      * Generate node locations (Warp & Blend nodes) for a given polynomial order.
+      * Pre-compute derivative matrices for efficient calculation of gradients.
+      * Evaluate Lagrange polynomials (simplified implementation).
+
+    :param order: The polynomial order (N) of the basis.
+    :type order: int
     """
     
     def __init__(self, order: int):
@@ -133,10 +175,15 @@ class NodalBasis:
         self.precompute_derivatives()
     
     def generate_nodes(self) -> np.ndarray:
-        """
-        Generate Warp & Blend nodes on reference tetrahedron
-        
-        These nodes minimize interpolation error (optimal for DG-FEM)
+        """Generates the nodal points within the reference tetrahedron.
+
+        The distribution of these nodes is crucial for the stability and
+        accuracy of the DG-FEM method. This implementation uses a simplified
+        approach to generate nodes on the vertices, edges, faces, and in
+        the interior of the tetrahedron.
+
+        :return: An array of node coordinates in the reference element.
+        :rtype: np.ndarray
         """
         N = self.order
         nodes = []
@@ -194,7 +241,12 @@ class NodalBasis:
         return nodes
     
     def precompute_derivatives(self):
-        """Precompute basis function derivatives at nodes"""
+        """Pre-computes the derivative matrices of the basis functions.
+
+        These matrices, (Dr, Ds, Dt), allow for the efficient computation
+        of the spatial derivatives of the solution within each element.
+        This implementation uses a simplified finite difference approach.
+        """
         # For efficiency, precompute derivative matrices
         # This is a simplified version - full implementation would use
         # orthogonal polynomials (Koornwinder polynomials)
@@ -231,10 +283,18 @@ class NodalBasis:
                                  self.lagrange_poly(i, node_minus)) / (2 * h)
     
     def lagrange_poly(self, i: int, point: np.ndarray) -> float:
-        """
-        Evaluate Lagrange polynomial i at point
-        
-        Simplified - full implementation would use tensor product
+        """Evaluates the i-th Lagrange basis function at a given point.
+
+        This is a simplified implementation using a distance-based weighting,
+        not a true polynomial evaluation.
+
+        :param i: The index of the Lagrange polynomial (and corresponding node).
+        :type i: int
+        :param point: The point (in reference coordinates) at which to evaluate
+                      the polynomial.
+        :type point: np.ndarray
+        :return: The value of the basis function.
+        :rtype: float
         """
         # Distance-based weighting (simplified)
         dist_i = np.linalg.norm(point - self.nodes[i])
@@ -251,32 +311,57 @@ class NodalBasis:
 
 
 class DGFEMSolver:
-    """
-    Discontinuous Galerkin Finite Element Method solver for acoustics
-    
-    Solves the first-order acoustic wave equations:
-        ∂p/∂t + ρ₀c² ∇·v = 0
-        ∂v/∂t + (1/ρ₀) ∇p = 0
-    
-    Features:
-    - Arbitrary high-order accuracy (polynomial order N)
-    - Explicit time stepping (RK2/RK3/RK4)
-    - GPU acceleration support (CuPy)
-    - Unstructured tetrahedral meshes
-    - Perfectly Matched Layers (PML) for absorbing boundaries
-    
-    Parameters
-    ----------
-    mesh_vertices : ndarray (N_vertices, 3)
-        Vertex coordinates
-    mesh_elements : ndarray (N_elements, 4)
-        Element connectivity (indices into vertices)
-    config : DGFEMConfig
-        Solver configuration
-    c : float
-        Speed of sound (m/s)
-    rho : float
-        Density (kg/m³)
+    """Discontinuous Galerkin Finite Element Method solver for room acoustics.
+
+    This class implements a high-order numerical method for solving the
+    acoustic wave equation in the time domain. It is designed to handle
+    complex room geometries and capture a wide range of wave phenomena.
+
+    Responsibilities:
+      * Create a tetrahedral mesh of the room geometry.
+      * Discretize the wave equation using the DG-FEM framework.
+      * Evolve the acoustic field in time using a Runge-Kutta method.
+      * Handle sources, receivers, and boundary conditions.
+      * Support GPU acceleration for performance.
+
+    Example:
+
+        .. code-block:: python
+
+            import rayroom as rt
+
+            # Define a room and create a mesh
+            vertices, elements = rt.engines.hybrid.hybrid_dgfem.create_box_mesh(
+                [10, 8, 3], resolution=0.5
+            )
+
+            # Configure and initialize the solver
+            config = rt.engines.hybrid.hybrid_dgfem.DGFEMConfig(polynomial_order=2)
+            solver = rt.engines.hybrid.hybrid_dgfem.DGFEMSolver(
+                vertices, elements, config=config
+            )
+
+            # Define source and receiver
+            source_pos = np.array([5, 4, 1.5])
+            receiver_pos = np.array([2, 2, 1.5])
+            
+            # Compute the Room Impulse Response
+            rir = solver.compute_rir(
+                source_pos, receiver_pos, duration=0.5
+            )
+            
+            # The result is the RIR as a NumPy array
+
+    :param mesh_vertices: The coordinates of the mesh vertices.
+    :type mesh_vertices: np.ndarray
+    :param mesh_elements: The connectivity of the tetrahedral elements.
+    :type mesh_elements: np.ndarray
+    :param config: Configuration settings for the solver.
+    :type config: DGFEMConfig, optional
+    :param c: The speed of sound in m/s. Defaults to 343.0.
+    :type c: float, optional
+    :param rho: The density of the medium in kg/m³. Defaults to 1.225.
+    :type rho: float, optional
     """
     
     def __init__(
@@ -334,10 +419,12 @@ class DGFEMSolver:
         self.build_face_connectivity()
     
     def build_face_connectivity(self):
-        """
-        Build face-to-face connectivity for numerical flux computation
-        
-        For each face, find the neighboring element (if exists)
+        """Builds the face-to-face connectivity map for the mesh.
+
+        This is a crucial step for computing the numerical fluxes that
+        couple adjacent elements. For each face of each element, this
+        method should identify the neighboring element. This is a
+        simplified implementation that assumes all faces are boundaries.
         """
         # Simplified - in production, use hash map of face vertices
         self.face_neighbors = []
@@ -378,11 +465,14 @@ class DGFEMSolver:
             self.mass_matrix_inv[i] *= 1.0 / elem.volume
     
     def compute_time_step(self) -> float:
-        """
-        Compute stable time step based on CFL condition
-        
-        For DG-FEM: Δt ≤ CFL × h / (c × (2N + 1))
-        where h = element size, N = polynomial order
+        """Computes the maximum stable time step based on the CFL condition.
+
+        The stability of the explicit time-stepping scheme depends on the
+        time step `dt` being small enough relative to the element size and
+        the speed of sound.
+
+        :return: The calculated stable time step in seconds.
+        :rtype: float
         """
         # Minimum element size
         h_min = min(elem.volume**(1/3) for elem in self.elements)
@@ -400,19 +490,19 @@ class DGFEMSolver:
         current_time: float,
         dt: float,
     ):
-        """
-        Add point source at given position
-        
-        Parameters
-        ----------
-        source_pos : ndarray (3,)
-            Source position
-        source_signal : ndarray
-            Source time series
-        current_time : float
-            Current simulation time
-        dt : float
-            Time step
+        """Injects a source signal into the simulation.
+
+        This method finds the element containing the source and adds the
+        source's contribution to the acoustic field at the current time step.
+
+        :param source_pos: The 3D coordinates of the point source.
+        :type source_pos: np.ndarray
+        :param source_signal: The time-domain signal of the source.
+        :type source_signal: np.ndarray
+        :param current_time: The current simulation time.
+        :type current_time: float
+        :param dt: The time step of the simulation.
+        :type dt: float
         """
         # Find element containing source
         source_elem = self.find_element_containing_point(source_pos)
@@ -443,7 +533,17 @@ class DGFEMSolver:
         self.resp[source_elem, nearest_node] += source_value / elem.volume
     
     def find_element_containing_point(self, point: np.ndarray) -> Optional[int]:
-        """Find which element contains the given point"""
+        """Finds the element that contains a given point.
+
+        This is used to locate sources and receivers within the mesh. This
+        implementation iterates through all elements and performs a
+        point-in-tetrahedron test.
+
+        :param point: The 3D coordinates of the point to locate.
+        :type point: np.ndarray
+        :return: The ID of the containing element, or `None` if not found.
+        :rtype: int or None
+        """
         # Simplified - use barycentric coordinates
         for i, elem in enumerate(self.elements):
             if self.point_in_tetrahedron(point, elem.vertices):
@@ -455,7 +555,15 @@ class DGFEMSolver:
         point: np.ndarray,
         vertices: np.ndarray
     ) -> bool:
-        """Check if point is inside tetrahedron (barycentric test)"""
+        """Checks if a point is inside a tetrahedron using barycentric coordinates.
+
+        :param point: The point to check.
+        :type point: np.ndarray
+        :param vertices: The four vertices of the tetrahedron.
+        :type vertices: np.ndarray
+        :return: `True` if the point is inside, `False` otherwise.
+        :rtype: bool
+        """
         v0, v1, v2, v3 = vertices
         
         # Compute barycentric coordinates
@@ -472,7 +580,15 @@ class DGFEMSolver:
         return False
     
     def get_physical_node(self, elem_id: int, node_id: int) -> np.ndarray:
-        """Get physical coordinates of node in element"""
+        """Transforms a node from reference to physical coordinates.
+
+        :param elem_id: The ID of the element.
+        :type elem_id: int
+        :param node_id: The ID of the node within the element.
+        :type node_id: int
+        :return: The physical coordinates of the node.
+        :rtype: np.ndarray
+        """
         elem = self.elements[elem_id]
         ref_node = self.basis.nodes[node_id]
         
@@ -483,10 +599,11 @@ class DGFEMSolver:
         return physical_node
     
     def compute_volume_terms(self):
-        """
-        Compute volume integral terms (spatial derivatives)
-        
-        This is the core DG-FEM operation
+        """Computes the volume integral terms of the DG-FEM formulation.
+
+        This corresponds to calculating the spatial derivatives (gradients
+        and divergences) of the acoustic fields within each element. This
+        is the core part of the spatial discretization.
         """
         # Reset residuals
         self.resp.fill(0)
@@ -542,10 +659,11 @@ class DGFEMSolver:
             self.resvz[i] = -(1.0 / self.rho) * dpz
     
     def compute_surface_terms(self):
-        """
-        Compute surface integral terms (numerical flux)
-        
-        This couples neighboring elements (discontinuous interface)
+        """Computes the surface integral terms (numerical fluxes).
+
+        This is the part of the DG-FEM method that couples adjacent elements
+        and enforces boundary conditions. The numerical flux ensures that
+        the solution is consistent across element boundaries.
         """
         # For each element and its faces
         for i, elem in enumerate(self.elements):
@@ -560,10 +678,17 @@ class DGFEMSolver:
                     self.compute_interface_flux(i, neighbor_id, face_id)
     
     def compute_interface_flux(self, elem_id: int, neighbor_id: int, face_id: int):
-        """
-        Compute numerical flux at interface between elements
-        
-        Uses upwind flux (Lax-Friedrichs or Roe flux)
+        """Computes the numerical flux at an interior face between two elements.
+
+        This uses an upwind flux (like Lax-Friedrichs) to ensure stability
+        and a physically correct flow of information between elements.
+
+        :param elem_id: The ID of the current element.
+        :type elem_id: int
+        :param neighbor_id: The ID of the neighboring element.
+        :type neighbor_id: int
+        :param face_id: The ID of the shared face.
+        :type face_id: int
         """
         elem = self.elements[elem_id]
         normal = elem.face_normals[face_id]
@@ -596,10 +721,15 @@ class DGFEMSolver:
         self.resvx[elem_id] += flux_contribution_v * normal[0]
     
     def apply_boundary_flux(self, elem_id: int, face_id: int):
-        """
-        Apply boundary condition flux
-        
-        Default: Impedance boundary (partial absorption)
+        """Applies the numerical flux for a boundary face.
+
+        This is where boundary conditions are enforced. This implementation
+        uses a simple impedance boundary condition for partial absorption.
+
+        :param elem_id: The ID of the boundary element.
+        :type elem_id: int
+        :param face_id: The ID of the boundary face.
+        :type face_id: int
         """
         elem = self.elements[elem_id]
         normal = elem.face_normals[face_id]
@@ -629,7 +759,14 @@ class DGFEMSolver:
         self.resvx[elem_id] += flux_contribution_v * normal[0] * 0.1
     
     def rk4_step(self, dt: float):
-        """4th-order Runge-Kutta time integration"""
+        """Performs a single time step using the 4th-order Runge-Kutta method.
+
+        This method advances the solution from the current time to the next
+        by combining four intermediate evaluations of the spatial derivatives.
+
+        :param dt: The time step size.
+        :type dt: float
+        """
         # Save initial state
         p0 = self.p.copy()
         vx0 = self.vx.copy()
@@ -700,24 +837,22 @@ class DGFEMSolver:
         duration: float = 1.0,
         sample_rate: int = 48000,
     ) -> np.ndarray:
-        """
-        Compute Room Impulse Response
-        
-        Parameters
-        ----------
-        source_pos : ndarray (3,)
-            Source position
-        receiver_pos : ndarray (3,)
-            Receiver position
-        duration : float
-            RIR duration in seconds
-        sample_rate : int
-            Sample rate in Hz
-            
-        Returns
-        -------
-        rir : ndarray
-            Room impulse response
+        """Computes the Room Impulse Response (RIR) for the configured room.
+
+        This is the main entry point for running a simulation. It orchestrates
+        the time-stepping loop, source injection, and receiver recording to
+        produce the final RIR.
+
+        :param source_pos: The 3D coordinates of the point source.
+        :type source_pos: np.ndarray
+        :param receiver_pos: The 3D coordinates of the receiver.
+        :type receiver_pos: np.ndarray
+        :param duration: The desired duration of the RIR in seconds.
+        :type duration: float, optional
+        :param sample_rate: The sample rate for the output RIR.
+        :type sample_rate: int, optional
+        :return: The computed Room Impulse Response as a NumPy array.
+        :rtype: np.ndarray
         """
         print(f"\nDG-FEM Simulation:")
         print(f"  Source: {source_pos}")
@@ -789,22 +924,22 @@ def create_box_mesh(
     dimensions: List[float],
     resolution: float = 0.2
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Create tetrahedral mesh for box room
-    
-    Parameters
-    ----------
-    dimensions : list of float
-        [width, depth, height] in meters
-    resolution : float
-        Approximate element size in meters
-        
-    Returns
-    -------
-    vertices : ndarray (N, 3)
-        Vertex coordinates
-    elements : ndarray (M, 4)
-        Element connectivity
+    """Creates a tetrahedral mesh for a box-shaped room.
+
+    This utility function generates a regular grid of points within the
+    specified dimensions and then uses Delaunay tetrahedralization to
+    create a mesh suitable for the DG-FEM solver.
+
+    :param dimensions: A list or tuple containing the [width, depth, height]
+                       of the box in meters.
+    :type dimensions: list[float]
+    :param resolution: The approximate size of the tetrahedral elements in
+                       the mesh, in meters. A smaller value leads to a
+                       finer mesh. Defaults to 0.2.
+    :type resolution: float, optional
+    :return: A tuple containing the vertex coordinates and the element
+             connectivity array.
+    :rtype: tuple[np.ndarray, np.ndarray]
     """
     Lx, Ly, Lz = dimensions
     

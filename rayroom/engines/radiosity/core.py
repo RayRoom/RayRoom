@@ -1,3 +1,20 @@
+"""
+This module provides the core components for an acoustic radiosity simulation.
+
+Acoustic Radiosity is an energy-based simulation method, well-suited for
+modeling the late, diffuse reverberation in a room. It operates by:
+
+  1.  Discretizing all surfaces in the room into a set of smaller "patches."
+  2.  Calculating "view factors" (or form factors) that describe the geometric
+      relationship and energy transfer potential between every pair of patches.
+  3.  Solving a system of equations to determine how energy propagates and
+      exchanges between these patches over time.
+
+This implementation uses a time-dependent (or "transient") radiosity approach,
+which allows it to generate a Room Impulse Response (RIR) directly. It is
+often used in hybrid engines, where it complements methods like ISM or
+ray tracing that handle the early specular reflections.
+"""
 import numpy as np
 from tqdm import tqdm
 
@@ -5,9 +22,49 @@ from ...core.constants import C_SOUND
 
 
 class RadiositySolver:
-    """
-    Acoustic Radiosity Solver for late diffuse reverberation.
-    Divides room surfaces into patches and solves energy exchange.
+    """Acoustic Radiosity solver for late diffuse reverberation.
+
+    This class divides room surfaces into patches and solves the energy
+    exchange between them over time. It is designed to model the diffuse
+    component of a room's acoustic response.
+
+    Responsibilities:
+      * Discretize the room's surfaces into a mesh of patches.
+      * Compute the view factors between all pairs of patches.
+      * Solve the time-dependent energy propagation.
+      * Reconstruct the energy decay at a receiver's position.
+
+    Example:
+
+        .. code-block:: python
+
+            import rayroom as rt
+
+            # Create a room with a source and receiver
+            room = rt.room.ShoeBox([12, 10, 3.5])
+            source = room.add_source([6, 5, 1.8])
+            receiver = room.add_receiver([3, 3, 1.8])
+            
+            # Initialize the radiosity solver
+            radiosity_solver = rt.engines.radiosity.RadiositySolver(room, patch_size=0.7)
+            
+            # Solve for the energy propagation over time
+            energy_history = radiosity_solver.solve(source, duration=1.5)
+            
+            # Collect the energy at the receiver to form a histogram
+            late_reverb_hist = radiosity_solver.collect_at_receiver(
+                receiver, energy_history, time_step=0.01
+            )
+            
+            # This histogram can then be used to generate the late part of an RIR.
+
+    :param room: The `Room` object to be simulated.
+    :type room: rayroom.room.Room
+    :param patch_size: The approximate side length of the square patches that
+                       the room surfaces will be divided into, in meters.
+                       Smaller patches increase accuracy and computational cost.
+                       Defaults to 0.5.
+    :type patch_size: float, optional
     """
 
     def __init__(self, room, patch_size=0.5):
@@ -28,8 +85,11 @@ class RadiositySolver:
         self._compute_view_factors()
 
     def _create_patches(self):
-        """
-        Subdivide all walls into smaller patches.
+        """Discretizes the surfaces of the room into smaller patches.
+
+        This method iterates through all the walls in the room and subdivides
+        them into a grid of smaller, roughly square patches based on the
+        specified `patch_size`.
         """
         print(f"Radiosity: Meshing walls with patch_size={self.patch_size}m...")
         self.patches = []
@@ -90,10 +150,12 @@ class RadiositySolver:
         print(f"  Created {len(self.patches)} patches.")
 
     def _compute_view_factors(self):
-        """
-        Compute Form Factor Matrix F_ij (fraction of energy leaving i that hits j).
-        Approximation:
-        F_ij = (cos(theta_i) * cos(theta_j) * Area_j) / (pi * r^2) + Visibility
+        """Computes the view factor (or form factor) matrix.
+
+        The view factor `F_ij` represents the fraction of energy leaving
+        patch `i` that arrives directly at patch `j`. This is a purely
+        geometric quantity. This implementation uses a simplified
+        point-to-area approximation and assumes convex rooms (no occlusion).
         """
         n = len(self.patches)
         print(f"Radiosity: Computing {n}x{n} view factor matrix...")
@@ -160,14 +222,24 @@ class RadiositySolver:
         print(f"  Avg row sum (should be ~1 for closed room): {np.mean(row_sums):.3f}")
 
     def solve(self, source, duration=1.0, time_step=0.01):
-        """
-        Run time-dependent radiosity.
-        Returns energy decay envelopes for each patch? 
-        Or reconstructs IR at receiver?
-        
-        To reconstruct IR:
-        We need to record "Impulse Response" of energy at each patch.
-        Then Receiver samples energy from all visible patches.
+        """Runs the time-dependent radiosity simulation.
+
+        This method simulates the propagation of sound energy between patches
+        over time. It first calculates the direct illumination of patches from
+        the sound source, and then iteratively propagates this energy throughout
+        the room.
+
+        :param source: The sound source for the simulation.
+        :type source: rayroom.room.objects.Source
+        :param duration: The total duration of the simulation in seconds.
+                         Defaults to 1.0.
+        :type duration: float, optional
+        :param time_step: The duration of each time step in the simulation.
+                          A smaller step increases accuracy. Defaults to 0.01.
+        :type time_step: float, optional
+        :return: A 2D array representing the energy leaving each patch at each
+                 time step.
+        :rtype: np.ndarray
         """
         steps = int(duration / time_step)
         n_patches = len(self.patches)
@@ -310,8 +382,22 @@ class RadiositySolver:
         return energy_history
 
     def collect_at_receiver(self, receiver, energy_history, time_step):
-        """
-        Calculate energy received at a microphone from the radiating patches.
+        """Collects the energy arriving at a receiver from all patches.
+
+        After the main radiosity simulation has been run, this method
+        calculates the contribution of each radiating patch to a specific
+        receiver over time. This generates a time-energy histogram that
+        represents the late reverberant field at the receiver's location.
+
+        :param receiver: The receiver at which to collect the energy.
+        :type receiver: rayroom.room.objects.Receiver
+        :param energy_history: The output from the `solve` method.
+        :type energy_history: np.ndarray
+        :param time_step: The time step used in the simulation.
+        :type time_step: float
+        :return: A list of (time, energy) tuples representing the energy
+                 arriving at the receiver over time.
+        :rtype: list[tuple[float, float]]
         """
         print(f"Radiosity: Collecting at receiver {receiver.name}...")
         steps, n_patches = energy_history.shape

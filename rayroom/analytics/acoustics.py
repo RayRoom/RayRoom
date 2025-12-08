@@ -3,8 +3,37 @@ from scipy.signal import butter, lfilter
 
 
 def schroeder_integration(rir):
-    """
-    Compute the Schroeder integral of a room impulse response.
+    """Computes the Schroeder integral of a room impulse response (RIR).
+
+    This function calculates the reverse cumulative squared sum of the RIR,
+    which is used to analyze the decay characteristics of a room. The resulting
+    decay curve is represented in decibels (dB).
+
+    Responsibilities:
+      * Calculate the energy of the RIR.
+      * Compute the Schroeder integral.
+      * Convert the result to a logarithmic scale (dB).
+
+    Example:
+
+        .. code-block:: python
+
+            import numpy as np
+            import rayroom as rt
+            
+            fs = 44100
+            rir_duration = 2.0  # seconds
+            num_samples = int(fs * rir_duration)
+            
+            # Generate a dummy RIR with exponential decay
+            t = np.linspace(0, rir_duration, num_samples)
+            rir = np.exp(-5 * t) * np.random.randn(num_samples)
+            
+            # Compute the Schroeder curve
+            sch_db = rt.analytics.acoustics.schroeder_integration(rir)
+            
+            # The sch_db can now be used to calculate RT60, EDT, etc.
+
 
     :param rir: The room impulse response signal.
     :type rir: np.ndarray
@@ -24,18 +53,26 @@ def schroeder_integration(rir):
 
 
 def _calculate_decay_time(sch_db, fs, t_start=None, t_end=None):
-    """
-    Calculate RT60 from a Schroeder decay curve using linear regression.
-    The regression is performed between -5 dB and -25 dB (for T20),
-    but is adapted if the signal has a lower dynamic range.
+    """Calculates the reverberation time (RT60) from a Schroeder decay curve.
+
+    This is a helper function that performs a linear regression on a specified
+    portion of the Schroeder curve to determine the time it takes for the
+    sound level to decay by 60 dB. It can be adapted for T20, T30, or EDT
+    by changing the start and end points of the regression.
+
+    Responsibilities:
+      * Identify the region of the decay curve for linear regression.
+      * Perform a linear fit to find the decay slope.
+      * Calculate the RT60 based on the slope.
+      * Handle cases with insufficient decay or low dynamic range.
 
     :param sch_db: Schroeder decay curve in dB.
     :type sch_db: np.ndarray
     :param fs: Sampling frequency in Hz.
     :type fs: int
-    :param t_start: Start time for the linear fit (in dB, e.g., -5).
+    :param t_start: Start level for the linear fit (in dB, e.g., -5).
     :type t_start: float, optional
-    :param t_end: End time for the linear fit (in dB, e.g., -25 for T20).
+    :param t_end: End level for the linear fit (in dB, e.g., -25 for T20).
     :type t_end: float, optional
     :return: The calculated RT60 value in seconds.
     :rtype: float
@@ -84,24 +121,72 @@ def _calculate_decay_time(sch_db, fs, t_start=None, t_end=None):
 
 
 def calculate_rt60(sch_db, fs):
-    """
-    Calculate RT60 (T20) from a Schroeder decay curve.
-    The regression is performed between -5 dB and -25 dB.
+    """Calculates T20 reverberation time from a Schroeder decay curve.
+
+    This function estimates the RT60 by performing a linear regression on the
+    decay curve between -5 dB and -25 dB. The resulting slope is then
+    extrapolated to find the time for a 60 dB decay.
+
+    Responsibilities:
+      * Utilize `_calculate_decay_time` to compute T20.
+      * Provide a simplified interface for a common acoustic parameter.
+
+    Example:
+
+        .. code-block:: python
+
+            import numpy as np
+            import rayroom as rt
+
+            fs = 44100
+            rir_duration = 2.0
+            num_samples = int(fs * rir_duration)
+            t = np.linspace(0, rir_duration, num_samples)
+            rir = np.exp(-5 * t) * np.random.randn(num_samples)
+            
+            sch_db = rt.analytics.acoustics.schroeder_integration(rir)
+            t20 = rt.analytics.acoustics.calculate_rt60(sch_db, fs)
+            
+            print(f"T20 Reverberation Time: {t20:.2f} seconds")
 
     :param sch_db: Schroeder decay curve in dB.
     :type sch_db: np.ndarray
     :param fs: Sampling frequency in Hz.
     :type fs: int
-    :return: The calculated RT60 value in seconds.
+    :return: The calculated T20 value in seconds.
     :rtype: float
     """
     return _calculate_decay_time(sch_db, fs, t_start=-5, t_end=-25)
 
 
 def calculate_edt(sch_db, fs):
-    """
-    Calculate Early Decay Time (EDT) from a Schroeder decay curve.
-    The regression is performed between 0 dB and -10 dB.
+    """Calculates Early Decay Time (EDT) from a Schroeder decay curve.
+
+    EDT is calculated similarly to RT60, but the linear regression is
+    performed on the initial part of the decay curve, from 0 dB to -10 dB.
+    This metric is often more correlated with the perceived reverberation.
+
+    Responsibilities:
+      * Utilize `_calculate_decay_time` to compute EDT.
+      * Focus on the early part of the sound decay.
+
+    Example:
+
+        .. code-block:: python
+
+            import numpy as np
+            import rayroom as rt
+
+            fs = 44100
+            rir_duration = 2.0
+            num_samples = int(fs * rir_duration)
+            t = np.linspace(0, rir_duration, num_samples)
+            rir = np.exp(-5 * t) * np.random.randn(num_samples)
+            
+            sch_db = rt.analytics.acoustics.schroeder_integration(rir)
+            edt = rt.analytics.acoustics.calculate_edt(sch_db, fs)
+            
+            print(f"Early Decay Time: {edt:.2f} seconds")
 
     :param sch_db: Schroeder decay curve in dB.
     :type sch_db: np.ndarray
@@ -114,8 +199,36 @@ def calculate_edt(sch_db, fs):
 
 
 def octave_band_filter(data, fs, center_freq, order=4):
-    """
-    Filter a signal into an octave band.
+    """Filters a signal into a specific octave band.
+
+    This function applies a Butterworth band-pass filter to isolate a
+    frequency range defined by a center frequency. The band is one octave
+    wide.
+
+    Responsibilities:
+      * Design a Butterworth filter for the specified octave band.
+      * Apply the filter to the input signal.
+      * Handle frequency normalization and boundary conditions.
+
+    Example:
+
+        .. code-block:: python
+
+            import numpy as np
+            import rayroom as rt
+
+            fs = 44100
+            duration = 1.0
+            num_samples = int(fs * duration)
+            t = np.linspace(0, duration, num_samples, endpoint=False)
+            
+            # White noise signal
+            noise = np.random.randn(num_samples)
+            
+            # Filter the noise in the 1000 Hz octave band
+            filtered_noise = rt.analytics.acoustics.octave_band_filter(
+                noise, fs, center_freq=1000
+            )
 
     :param data: Input signal.
     :type data: np.ndarray
@@ -147,12 +260,35 @@ def octave_band_filter(data, fs, center_freq, order=4):
 
 
 def get_octave_bands(subdivisions=1):
-    """
-    Returns standard octave band center frequencies, with optional subdivisions.
+    """Returns standard octave band center frequencies.
+
+    Provides a list of center frequencies for standard octave bands used in
+    acoustic analysis. Optionally, it can generate intermediate frequencies
+    for finer resolution.
+
+    Responsibilities:
+      * Define standard octave band center frequencies.
+      * Generate subdivided frequencies if requested.
+
+    Example:
+
+        .. code-block:: python
+
+            import rayroom as rt
+
+            # Standard octave bands
+            bands = rt.analytics.acoustics.get_octave_bands()
+            print("Standard bands:", bands)
+            
+            # 1/3-octave bands (approximately)
+            sub_bands = rt.analytics.acoustics.get_octave_bands(subdivisions=3)
+            print("1/3-octave bands:", sub_bands)
 
     :param subdivisions: Number of points per octave interval.
-                         e.g. 1 for standard bands, 5 for 3 intermediate points.
+                         For example, 1 for standard bands, 3 for 1/3-octave bands.
     :type subdivisions: int
+    :return: An array of octave band center frequencies.
+    :rtype: np.ndarray
     """
     base_bands = [125, 250, 500, 1000, 2000, 4000, 8000, 16000]
     if subdivisions <= 1:
@@ -172,13 +308,46 @@ def get_octave_bands(subdivisions=1):
 
 
 def calculate_clarity(rir, fs, time_threshold_ms):
-    """
-    Calculate a clarity metric (C50, C80) from a Room Impulse Response.
+    """Calculates a clarity metric (e.g., C50, C80) from an RIR.
+
+    Clarity metrics quantify the ratio of early-arriving sound energy to
+    late-arriving sound energy. C50 and C80 are common metrics for speech
+    and music, respectively.
+
+    Responsibilities:
+      * Separate the RIR into early and late energy components.
+      * Calculate the ratio of early to late energy.
+      * Express the result in decibels.
+
+    Example:
+
+        .. code-block:: python
+
+            import numpy as np
+            import rayroom as rt
+
+            fs = 44100
+            rir_duration = 1.0
+            num_samples = int(fs * rir_duration)
+            t = np.linspace(0, rir_duration, num_samples)
+            rir = np.exp(-6 * t) * np.random.randn(num_samples)
+            
+            # Calculate C50 (clarity for speech)
+            c50 = rt.analytics.acoustics.calculate_clarity(rir, fs, 50)
+            print(f"C50: {c50:.2f} dB")
+            
+            # Calculate C80 (clarity for music)
+            c80 = rt.analytics.acoustics.calculate_clarity(rir, fs, 80)
+            print(f"C80: {c80:.2f} dB")
 
     :param rir: The room impulse response.
+    :type rir: np.ndarray
     :param fs: Sampling frequency.
+    :type fs: int
     :param time_threshold_ms: The time threshold in milliseconds (50 for C50, 80 for C80).
+    :type time_threshold_ms: float
     :return: Clarity value in dB.
+    :rtype: float
     """
     is_ambisonic = rir.ndim > 1
     rir_to_process = rir[:, 0] if is_ambisonic else rir
@@ -204,13 +373,42 @@ def calculate_clarity(rir, fs, time_threshold_ms):
 
 
 def calculate_drr(rir, fs, direct_sound_window_ms=5):
-    """
-    Calculate the Direct-to-Reverberant Ratio (DRR).
+    """Calculates the Direct-to-Reverberant Ratio (DRR).
+
+    DRR is the ratio of the energy of the direct sound to the energy of the
+    reverberant sound. It is a measure of the relative amount of direct
+    sound compared to reflected sound at a listening position.
+
+    Responsibilities:
+      * Identify the direct sound component within the RIR.
+      * Separate direct and reverberant energy.
+      * Calculate the ratio and express it in decibels.
+
+    Example:
+
+        .. code-block:: python
+
+            import numpy as np
+            import rayroom as rt
+
+            fs = 44100
+            rir_duration = 1.0
+            num_samples = int(fs * rir_duration)
+            t = np.linspace(0, rir_duration, num_samples)
+            rir = np.exp(-6 * t) * np.random.randn(num_samples)
+            
+            # Calculate DRR
+            drr = rt.analytics.acoustics.calculate_drr(rir, fs)
+            print(f"DRR: {drr:.2f} dB")
 
     :param rir: The room impulse response.
+    :type rir: np.ndarray
     :param fs: Sampling frequency.
-    :param direct_sound_window_ms: The window size in ms to consider as direct sound around the peak.
+    :type fs: int
+    :param direct_sound_window_ms: The window size in ms to consider as direct sound.
+    :type direct_sound_window_ms: float
     :return: DRR value in dB.
+    :rtype: float
     """
     is_ambisonic = rir.ndim > 1
     rir_to_process = rir[:, 0] if is_ambisonic else rir

@@ -59,6 +59,7 @@ class RayTracer:
         :param min_ism_order: Max order of reflections handled by ISM. RayTracer will skip pure specular
                               reflections up to this order. -1 to disable. Defaults to -1.
         :type min_ism_order: int
+
         :return: Dictionary mapping source names to lists of ray paths if record_paths is True, else None.
         :rtype: dict or None
         """

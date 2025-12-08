@@ -1,3 +1,19 @@
+"""
+This module implements the Image Source Method (ISM) for acoustic simulation.
+
+The Image Source Method is a deterministic algorithm used to find the paths of
+specular reflections in a room. It is particularly effective for modeling the
+early part of a Room Impulse Response (RIR) in rectangular or simple polygonal
+geometries.
+
+The core idea is to mirror the sound source across the room's surfaces
+(walls) to create "image sources." A valid reflection path exists between the
+source and a receiver if a straight line from the receiver to an image source
+intersects the chain of reflecting walls that created that image.
+
+This implementation can handle arbitrary polygonal rooms and includes checks for
+path validity and occlusion.
+"""
 import numpy as np
 
 from ...core.constants import C_SOUND
@@ -7,6 +23,24 @@ from ...core.geometry import ray_plane_intersection, is_point_in_polygon, normal
 
 
 class ImageSource:
+    """Represents an image source in the ISM algorithm.
+
+    An image source is a virtual sound source created by reflecting a real
+    source across a surface. This class stores the position of the image
+    source, its reflection order, and its lineage (the parent image and
+    the wall that generated it).
+
+    :param position: The 3D coordinates of the image source.
+    :type position: np.ndarray or list[float]
+    :param order: The reflection order of the image source (0 for the real source).
+    :type order: int
+    :param parent: The parent `ImageSource` object from which this one was generated.
+                   `None` for the original source.
+    :type parent: ImageSource, optional
+    :param generating_wall: The `Wall` object that was used to reflect the parent
+                            and create this image source.
+    :type generating_wall: rayroom.room.objects.Wall, optional
+    """
     def __init__(self, position, order, parent=None, generating_wall=None):
         self.position = np.array(position)
         self.order = order
@@ -15,8 +49,46 @@ class ImageSource:
 
 
 class ImageSourceEngine:
-    """
-    Implements the Image Source Method for calculating early specular reflections.
+    """An engine for calculating early specular reflections using the ISM.
+
+    This class manages the process of generating image sources, validating
+    reflection paths, and calculating the contribution of each valid path
+    to the Room Impulse Response.
+
+    Responsibilities:
+      * Recursively generate a tree of image sources up to a specified order.
+      * For each receiver, trace paths back from each image source.
+      * Validate paths by checking for intersections within wall boundaries
+        and for occlusion by other objects.
+      * Calculate the arrival time, energy, and direction of each valid reflection.
+      * Record the reflection data in the appropriate receiver histograms.
+
+    Example:
+
+        .. code-block:: python
+
+            import rayroom as rt
+
+            # Create a room with a source and receiver
+            room = rt.room.ShoeBox([8, 6, 3])
+            source = room.add_source([4, 3, 1.5])
+            receiver = room.add_receiver([2, 2, 1.5])
+            
+            # Initialize the ISM engine
+            ism_engine = rt.engines.ism.ImageSourceEngine(room)
+            
+            # Run the simulation for the source
+            ism_engine.run(source, max_order=3)
+            
+            # The receiver's `amplitude_histogram` will now be populated
+            # with the calculated early reflections.
+
+    :param room: The `Room` object to be simulated.
+    :type room: rayroom.room.Room
+    :param temperature: The ambient temperature in Celsius. Defaults to 20.0.
+    :type temperature: float, optional
+    :param humidity: The relative humidity in percent. Defaults to 50.0.
+    :type humidity: float, optional
     """
     def __init__(self, room, temperature=20.0, humidity=50.0):
         self.room = room
@@ -28,9 +100,18 @@ class ImageSourceEngine:
         )
 
     def run(self, source, max_order=2, verbose=True):
-        """
-        Compute early reflections for a source-receiver pair.
-        Populates receiver.energy_histogram with deterministic early reflections.
+        """Computes early reflections for a given source.
+
+        This is the main entry point for the engine. It generates the image
+        sources and then processes them for each receiver in the room,
+        populating the receivers' histograms with the results.
+
+        :param source: The `Source` object for which to calculate reflections.
+        :type source: rayroom.room.objects.Source
+        :param max_order: The maximum reflection order to compute. Defaults to 2.
+        :type max_order: int, optional
+        :param verbose: If `True`, print progress information. Defaults to `True`.
+        :type verbose: bool, optional
         """
         if verbose:
             print(f"ISM: Processing Source {source.name}...")
@@ -49,6 +130,15 @@ class ImageSourceEngine:
             self._process_receiver(source, receiver, images)
 
     def _generate_image_sources(self, source, max_order):
+        """Recursively generates the tree of image sources.
+
+        :param source: The original `Source` object.
+        :type source: rayroom.room.objects.Source
+        :param max_order: The maximum reflection order.
+        :type max_order: int
+        :return: A list of all generated `ImageSource` objects.
+        :rtype: list[ImageSource]
+        """
         images = []
 
         # Add original source as order 0
@@ -59,6 +149,15 @@ class ImageSourceEngine:
         return images
 
     def _recursive_images(self, current_image, all_images, max_depth):
+        """The recursive helper function for generating image sources.
+
+        :param current_image: The `ImageSource` to reflect.
+        :type current_image: ImageSource
+        :param all_images: The list to which new images are added.
+        :type all_images: list[ImageSource]
+        :param max_depth: The maximum reflection order.
+        :type max_depth: int
+        """
         if current_image.order >= max_depth:
             return
 
@@ -87,6 +186,15 @@ class ImageSourceEngine:
             self._recursive_images(new_image, all_images, max_depth)
 
     def _process_receiver(self, real_source, receiver, images):
+        """Processes all image sources for a single receiver.
+
+        :param real_source: The original `Source` object.
+        :type real_source: rayroom.room.objects.Source
+        :param receiver: The `Receiver` to process for.
+        :type receiver: rayroom.room.objects.Receiver
+        :param images: The list of all `ImageSource` objects.
+        :type images: list[ImageSource]
+        """
         # For each image, check visibility path to receiver
         for img in images:
             result = self._construct_path(img, receiver)
@@ -104,11 +212,20 @@ class ImageSourceEngine:
                 )
 
     def _construct_path(self, image, receiver):
-        """
-        Backtrack from receiver to image source to find interaction points.
-        Returns tuple (list of points, list of walls) or None.
-        Points: [ReceiverPos, Hit1, Hit2, ..., SourcePos]
-        Walls: [Wall1, Wall2, ...] corresponding to Hit1, Hit2...
+        """Backtracks from a receiver to an image source to find reflection points.
+
+        This method constructs the geometric path of a potential reflection.
+        The path is traced backwards from the receiver towards the image source,
+        calculating the intersection point with each parent wall in the
+        image's lineage.
+
+        :param image: The `ImageSource` to trace from.
+        :type image: ImageSource
+        :param receiver: The target `Receiver`.
+        :type receiver: rayroom.room.objects.Receiver
+        :return: A tuple containing a list of path points and a list of walls hit,
+                 or `None` if a valid path cannot be constructed.
+        :rtype: tuple[list[np.ndarray], list] or None
         """
         path_points = [receiver.position]
         walls_hit = []
@@ -147,10 +264,20 @@ class ImageSourceEngine:
         return path_points, walls_hit
 
     def _validate_path(self, points, walls):
-        """
-        Check if:
-        1. Intersection points are inside their respective wall polygons.
-        2. Segments are not occluded by *other* walls or furniture.
+        """Validates a constructed reflection path.
+
+        This method performs two crucial checks:
+        1.  It ensures that each reflection point lies within the boundaries
+            of its corresponding wall polygon.
+        2.  It checks if any segment of the path is occluded by other objects
+            in the room (walls or furniture).
+
+        :param points: The list of points defining the path segments.
+        :type points: list[np.ndarray]
+        :param walls: The list of walls corresponding to the reflection points.
+        :type walls: list
+        :return: `True` if the path is valid, `False` otherwise.
+        :rtype: bool
         """
         # 1. Check Polygons
         # Note: points[1] corresponds to walls[0] (Hit1)
@@ -177,6 +304,18 @@ class ImageSourceEngine:
         return True
 
     def _is_occluded(self, p1, p2, ignore_walls):
+        """Checks if the line segment between two points is occluded.
+
+        :param p1: The start point of the segment.
+        :type p1: np.ndarray
+        :param p2: The end point of the segment.
+        :type p2: np.ndarray
+        :param ignore_walls: A list of walls to ignore during the check (usually
+                             the reflecting walls that define the segment).
+        :type ignore_walls: list
+        :return: `True` if the segment is occluded, `False` otherwise.
+        :rtype: bool
+        """
         vec = p2 - p1
         dist = np.linalg.norm(vec)
         if dist < 1e-5:
@@ -217,6 +356,24 @@ class ImageSourceEngine:
     def _record_reflection(
             self, source, receiver, image, path_points, walls_hit
     ):
+        """Calculates and records the properties of a valid reflection.
+
+        This method computes the total path length, arrival time, and energy
+        of a validated reflection path. It accounts for geometric spreading,
+        source directivity, air absorption, and wall absorption. The final
+        result is recorded in the receiver's histogram.
+
+        :param source: The original `Source` object.
+        :type source: rayroom.room.objects.Source
+        :param receiver: The target `Receiver`.
+        :type receiver: rayroom.room.objects.Receiver
+        :param image: The `ImageSource` corresponding to the reflection.
+        :type image: ImageSource
+        :param path_points: The points defining the reflection path.
+        :type path_points: list[np.ndarray]
+        :param walls_hit: The walls involved in the reflection.
+        :type walls_hit: list
+        """
         # Calculate total distance
         total_dist = 0.0
         for i in range(len(path_points) - 1):

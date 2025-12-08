@@ -47,3 +47,14 @@ After uploading, wait a minute and try installing it in a fresh environment:
 ```bash
 pip install rayroom
 ```
+
+## 5. Build the Documentation
+
+To build the HTML documentation, navigate to the `docs/` directory and run:
+
+```bash
+cd docs/
+make html
+```
+
+The generated documentation can be found in `docs/_build/html/`.

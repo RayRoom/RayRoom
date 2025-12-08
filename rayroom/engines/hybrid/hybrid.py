@@ -1,3 +1,18 @@
+"""
+This module implements a hybrid acoustic rendering engine.
+
+The `HybridRenderer` class combines two popular methods in geometrical acoustics:
+  * **Image Source Method (ISM):** Used for accurately calculating early,
+    specular reflections. This method is deterministic and precise for
+    low-order reflections in simple geometries.
+  * **Ray Tracing:** Used for simulating the late, diffuse reverberant tail
+    of the room's response. Ray tracing is a stochastic method that is
+    efficient for modeling high-order reflections and diffuse scattering.
+
+By combining these two techniques, the hybrid approach aims to capture the
+strengths of both, providing a more perceptually accurate and computationally
+efficient simulation than either method alone.
+"""
 import os
 import numpy as np
 from scipy.io import wavfile
@@ -10,9 +25,59 @@ from ...room.objects import AmbisonicReceiver
 
 
 class HybridRenderer:
-    """
-    Implements a hybrid acoustic rendering method combining Image Source Method (ISM)
-    for early reflections and Ray Tracing for late reverberation.
+    """A hybrid acoustic renderer combining ISM and Ray Tracing.
+
+    This class orchestrates the simulation process by first running the
+    Image Source Method to generate the early part of the Room Impulse
+    Response (RIR), and then using a Ray Tracer to generate the late
+    reverberation. The results are combined to form a complete RIR.
+
+    Responsibilities:
+      * Manage and configure the ISM and Ray Tracing engines.
+      * Handle the assignment of audio signals to sources.
+      * Run the simulation pipeline for each source.
+      * Combine the early and late reflection histograms.
+      * Generate the final RIRs for each receiver.
+      * Convolve the RIRs with source audio to produce the final output.
+
+    Example:
+
+        .. code-block:: python
+
+            import rayroom as rt
+            import numpy as np
+
+            # Create a room with a source and receiver
+            room = rt.room.ShoeBox([10, 8, 4])
+            source = room.add_source([5, 4, 2])
+            receiver = room.add_receiver([2, 2, 2])
+            
+            # Initialize the hybrid renderer
+            renderer = rt.engines.hybrid.HybridRenderer(room)
+            
+            # Assign an audio signal to the source
+            sample_rate = 44100
+            source_audio = np.random.randn(sample_rate * 2)  # 2s of white noise
+            renderer.set_source_audio(source, source_audio)
+            
+            # Run the rendering process
+            outputs, rirs = renderer.render(
+                n_rays=5000,
+                ism_order=2,
+                rir_duration=1.0
+            )
+            
+            # `outputs` contains the rendered audio for each receiver
+            # `rirs` contains the generated RIRs
+
+    :param room: The `Room` object to be simulated.
+    :type room: rayroom.room.Room
+    :param fs: The master sampling rate for the simulation. Defaults to 44100.
+    :type fs: int, optional
+    :param temperature: The ambient temperature in Celsius. Defaults to 20.0.
+    :type temperature: float, optional
+    :param humidity: The relative humidity in percent. Defaults to 50.0.
+    :type humidity: float, optional
     """
 
     def __init__(self, room, fs=44100, temperature=20.0, humidity=50.0):
@@ -37,8 +102,17 @@ class HybridRenderer:
         self.last_rirs = {}
 
     def set_source_audio(self, source, audio, gain=1.0):
-        """
-        Assign audio data to a Source object.
+        """Assigns an audio signal to a source.
+
+        The audio can be provided as a file path to a WAV file or as a
+        NumPy array.
+
+        :param source: The `Source` object to which the audio will be assigned.
+        :type source: rayroom.room.objects.Source
+        :param audio: The audio data, either as a path to a WAV file or a NumPy array.
+        :type audio: str or np.ndarray
+        :param gain: A linear gain factor to apply to the audio. Defaults to 1.0.
+        :type gain: float, optional
         """
         if isinstance(audio, str):
             data = self._load_wav(audio)
@@ -48,8 +122,15 @@ class HybridRenderer:
         self.source_gains[source] = gain
 
     def _load_wav(self, path):
-        """
-        Load a WAV file and convert it to a mono float array.
+        """Loads and prepares a WAV file for simulation.
+
+        This internal method reads a WAV file, converts it to a mono,
+        floating-point signal, and checks for sample rate consistency.
+
+        :param path: The file path to the WAV file.
+        :type path: str
+        :return: The loaded audio data as a NumPy array.
+        :rtype: np.ndarray
         """
         if not os.path.exists(path):
             raise FileNotFoundError(f"Audio file not found: {path}")
@@ -67,8 +148,41 @@ class HybridRenderer:
     def render(self, n_rays=10000, max_hops=50, rir_duration=2.0,
                verbose=True, record_paths=False, interference=False,
                ism_order=3, show_path_plot=False):
-        """
-        Run the hybrid rendering pipeline.
+        """Runs the main hybrid rendering pipeline.
+
+        This method executes the simulation for all sources with assigned
+        audio. It combines ISM and Ray Tracing, generates RIRs, and
+        convolves them with the source audio to produce the final mixed
+        output for each receiver.
+
+        :param n_rays: The number of rays to use for the ray tracing part.
+                       Defaults to 10000.
+        :type n_rays: int, optional
+        :param max_hops: The maximum number of reflections for each ray.
+                         Defaults to 50.
+        :type max_hops: int, optional
+        :param rir_duration: The duration of the generated RIRs in seconds.
+                             Defaults to 2.0.
+        :type rir_duration: float, optional
+        :param verbose: If `True`, print progress information. Defaults to `True`.
+        :type verbose: bool, optional
+        :param record_paths: If `True`, the paths of the rays will be recorded
+                             and returned. This can use a lot of memory.
+                             Defaults to `False`.
+        :type record_paths: bool, optional
+        :param interference: If `True`, phase is preserved in the RIR generation,
+                             allowing for interference effects. Defaults to `False`.
+        :type interference: bool, optional
+        :param ism_order: The maximum reflection order for the Image Source Method.
+                          Defaults to 3.
+        :type ism_order: int, optional
+        :param show_path_plot: (Not implemented in this method) If `True`, a plot
+                               of the ray paths would be displayed.
+        :type show_path_plot: bool, optional
+        :return: A tuple containing a dictionary of receiver outputs (audio) and a
+                 dictionary of the last computed RIR for each receiver. If
+                 `record_paths` is `True`, the ray paths are also returned.
+        :rtype: tuple
         """
         receiver_outputs = {rx.name: None for rx in self.room.receivers}
         all_paths = {} if record_paths else None

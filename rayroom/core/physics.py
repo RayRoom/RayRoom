@@ -2,18 +2,43 @@ import numpy as np
 
 
 def air_absorption_coefficient(freq, temperature=20.0, humidity=50.0, pressure=101325.0):
-    """
-    Calculate air absorption coefficient (alpha) in dB/m using ISO 9613-1.
+    """Calculates the air absorption coefficient based on ISO 9613-1.
 
-    :param freq: Frequency in Hz.
+    This function determines the attenuation of sound in air due to absorption,
+    which is dependent on frequency, temperature, humidity, and atmospheric
+    pressure. The result is given in decibels per meter (dB/m).
+
+    Responsibilities:
+      * Implement the ISO 9613-1 standard for calculating air absorption.
+      * Account for environmental factors like temperature, humidity, and pressure.
+      * Calculate relaxation frequencies for oxygen and nitrogen.
+
+    Example:
+
+        .. code-block:: python
+
+            import rayroom as rt
+
+            # Absorption at 1000 Hz in standard conditions
+            alpha_1k = rt.core.physics.air_absorption_coefficient(1000)
+            print(f"Absorption at 1 kHz: {alpha_1k:.4f} dB/m")
+            
+            # Absorption in a warmer, more humid environment
+            alpha_warm_humid = rt.core.physics.air_absorption_coefficient(
+                1000, temperature=30.0, humidity=70.0
+            )
+            print(f"Absorption at 1 kHz (warm, humid): {alpha_warm_humid:.4f} dB/m")
+
+    :param freq: Frequency in Hertz (Hz).
     :type freq: float
-    :param temperature: Temperature in Celsius. Defaults to 20.0.
-    :type temperature: float
-    :param humidity: Relative humidity in percent (0-100). Defaults to 50.0.
-    :type humidity: float
-    :param pressure: Atmospheric pressure in Pascals. Defaults to 101325.0.
-    :type pressure: float
-    :return: Absorption coefficient in dB/m.
+    :param temperature: Ambient temperature in Celsius. Defaults to 20.0.
+    :type temperature: float, optional
+    :param humidity: Relative humidity in percent (e.g., 50.0 for 50%).
+                     Defaults to 50.0.
+    :type humidity: float, optional
+    :param pressure: Atmospheric pressure in Pascals (Pa). Defaults to 101325.0.
+    :type pressure: float, optional
+    :return: The absorption coefficient in decibels per meter (dB/m).
     :rtype: float
     """
     # Constants for ISO 9613-1

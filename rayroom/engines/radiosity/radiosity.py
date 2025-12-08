@@ -1,3 +1,17 @@
+"""
+This module provides a hybrid acoustic rendering engine that combines the
+Image Source Method (ISM) with Acoustic Radiosity.
+
+This approach leverages the strengths of both methods:
+  * **Image Source Method:** Accurately models early specular reflections,
+    which are crucial for localization and clarity.
+  * **Acoustic Radiosity:** Efficiently models the late, diffuse
+    reverberation, which contributes to the sense of space and envelopment.
+
+The `RadiosityRenderer` class inherits from the standard hybrid renderer and
+replaces the stochastic ray tracing component with the deterministic,
+energy-based radiosity solver for the late reverberant tail.
+"""
 import numpy as np
 from scipy.signal import fftconvolve
 
@@ -8,9 +22,61 @@ from ...room.objects import Receiver, AmbisonicReceiver
 
 
 class RadiosityRenderer(HybridRenderer):
-    """
-    A Hybrid Renderer combining ISM (Early Specular) and Radiosity (Late Diffuse).
-    Replaces the stochastic Ray Tracing tail with a smooth Radiosity calculation.
+    """A Hybrid Renderer using ISM for early and Radiosity for late reflections.
+
+    This renderer provides a high-quality simulation by combining the precision
+    of the Image Source Method for early specular reflections with the
+    efficiency of Acoustic Radiosity for modeling the late diffuse tail.
+    It replaces the stochastic ray tracing component of a typical hybrid
+    engine with the radiosity solver.
+
+    Responsibilities:
+      * Orchestrate the ISM and Radiosity solvers.
+      * Run ISM to generate the early reflection histogram.
+      * Run the Radiosity solver to generate the late diffuse energy history.
+      * Merge the results from both solvers.
+      * Generate a complete RIR from the combined energy histogram.
+      * Convolve the RIR with source audio to produce the final output.
+
+    Example:
+
+        .. code-block:: python
+
+            import rayroom as rt
+            import numpy as np
+
+            # Create a room with a source and receiver
+            room = rt.room.ShoeBox([10, 8, 3])
+            source = room.add_source([5, 4, 1.5])
+            receiver = room.add_receiver([2, 2, 1.5])
+
+            # Initialize the radiosity renderer
+            renderer = rt.engines.radiosity.RadiosityRenderer(
+                room, patch_size=0.6
+            )
+
+            # Assign an audio signal to the source
+            sample_rate = 44100
+            source_audio = np.random.randn(sample_rate)  # 1s of white noise
+            renderer.set_source_audio(source, source_audio)
+
+            # Run the rendering process
+            outputs, rirs = renderer.render(ism_order=2, rir_duration=1.2)
+
+            # `outputs` contains the rendered audio for each receiver
+            # `rirs` contains the generated RIRs
+
+    :param room: The `Room` object to be simulated.
+    :type room: rayroom.room.Room
+    :param fs: The master sampling rate for the simulation. Defaults to 44100.
+    :type fs: int, optional
+    :param temperature: The ambient temperature in Celsius. Defaults to 20.0.
+    :type temperature: float, optional
+    :param humidity: The relative humidity in percent. Defaults to 50.0.
+    :type humidity: float, optional
+    :param patch_size: The approximate size of the radiosity patches.
+                       Defaults to 0.5.
+    :type patch_size: float, optional
     """
     def __init__(self, room, fs=44100, temperature=20.0, humidity=50.0, patch_size=0.5):
         super().__init__(room, fs, temperature, humidity)
@@ -18,8 +84,23 @@ class RadiosityRenderer(HybridRenderer):
         self.last_rirs = {}
 
     def render(self, ism_order=2, rir_duration=1.5, verbose=True):
-        """
-        Render using ISM + Radiosity.
+        """Runs the hybrid ISM + Radiosity rendering pipeline.
+
+        This method executes the full simulation, combining the early
+        reflections from ISM with the late reverberation from Radiosity
+        to produce the final audio output for all receivers.
+
+        :param ism_order: The maximum reflection order for the Image Source Method.
+                          Defaults to 2.
+        :type ism_order: int, optional
+        :param rir_duration: The total duration of the generated RIRs in seconds.
+                             Defaults to 1.5.
+        :type rir_duration: float, optional
+        :param verbose: If `True`, print progress information. Defaults to `True`.
+        :type verbose: bool, optional
+        :return: A tuple containing a dictionary of receiver outputs (audio) and a
+                 dictionary of the last computed RIR for each receiver.
+        :rtype: tuple[dict, dict]
         """
         receiver_outputs = {rx.name: None for rx in self.room.receivers}
         rirs = {rx.name: None for rx in self.room.receivers}
