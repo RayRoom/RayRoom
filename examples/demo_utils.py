@@ -14,6 +14,9 @@ from rayroom import (
 from rayroom.analytics.acoustics import (
     calculate_clarity,
     calculate_drr,
+    calculate_edt,
+    calculate_rt60,
+    schroeder_integration,
 )
 from rayroom.room.visualize import (
     plot_reverberation_time,
@@ -136,17 +139,24 @@ def compute_and_save_metrics(rir, mixed_audio, mic_name, mic_type, fs, output_di
     plot_decay_curve(rir, fs, schroeder=True, filename=schroeder_path, show=False)
 
     # Calculate and print metrics
+    sch_db = schroeder_integration(rir)
+    edt = calculate_edt(sch_db, fs)
+    rt60 = calculate_rt60(sch_db, fs)
     c50 = calculate_clarity(rir, fs, 50)
     c80 = calculate_clarity(rir, fs, 80)
     drr = calculate_drr(rir, fs)
 
     print("\nAcoustic Metrics:")
+    print(f"  - EDT (Early Decay Time): {edt:.2f} s")
+    print(f"  - RT60 (Reverberation Time): {rt60:.2f} s")
     print(f"  - C50 (Speech Clarity): {c50:.2f} dB")
     print(f"  - C80 (Music Clarity):  {c80:.2f} dB")
     print(f"  - DRR (Direct-to-Reverberant Ratio): {drr:.2f} dB")
 
     # Save metrics to JSON
     metrics = {
+        "edt_s": edt,
+        "rt60_s": rt60,
         "c50_db": c50,
         "c80_db": c80,
         "drr_db": drr,
@@ -194,3 +204,26 @@ def process_effects_and_save(mixed_audio, rir, mic_name, mic_type, fs, output_di
 
         save_audio_files(effected_audio, mic_type, fs, current_output_dir, filename_prefix)
         compute_and_save_metrics(rir, effected_audio, mic_name, mic_type, fs, current_output_dir, simulation_name)
+
+
+def save_performance_metrics(monitor, output_dir, demo_name):
+    """Saves performance metrics to a JSON file.
+
+    Args:
+        monitor (PerformanceMonitor): The performance monitor object.
+        output_dir (str): The directory to save the metrics to.
+        demo_name (str): The name of the demo.
+    """
+    print("\nPerformance Metrics:")
+    print(f"  - Simulation Time: {monitor.runtime_s:.2f}s")
+    print(f"  - Peak Memory Usage: {monitor.peak_memory_mb:.2f}MB")
+
+    # Save performance metrics
+    perf_metrics = {
+        "runtime_s": monitor.runtime_s,
+        "peak_memory_mb": monitor.peak_memory_mb,
+    }
+    perf_metrics_path = os.path.join(output_dir, f"{demo_name}_performance_metrics.json")
+    with open(perf_metrics_path, 'w') as f:
+        json.dump(perf_metrics, f, indent=4)
+    print(f"Performance metrics saved to {perf_metrics_path}\n")

@@ -2,16 +2,19 @@ import os
 import sys
 import argparse
 import numpy as np
+import json
 
 from rayroom import (
     SpectralRenderer,
 )
+from rayroom.analytics.performance import PerformanceMonitor
 from rayroom.effects import presets
 from demo_utils import (
     create_demo_room,
     generate_layouts,
     process_effects_and_save,
     DEFAULT_SAMPLING_RATE,
+    save_performance_metrics,
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -74,36 +77,48 @@ def main(mic_type='mono', output_dir='outputs/spectral', effects=None):
     print("Phase 1: HF (Geometric) + Phase 2: LF (FDTD)")
     print("Note: FDTD step may take time...")
 
-    outputs, rirs = renderer.render(
-        n_rays=10000,
-        max_hops=10,
-        rir_duration=1.0,  # Short duration for demo speed
-        record_paths=False,
-        ism_order=1,
-        show_path_plot=False
-    )
+    with PerformanceMonitor() as monitor:
+        outputs, rirs = renderer.render(
+            n_rays=10000,
+            max_hops=10,
+            rir_duration=1.0,  # Short duration for demo speed
+            record_paths=False,
+            ism_order=1,
+            show_path_plot=False
+        )
+    save_performance_metrics(monitor, output_dir, "spectral")
 
     # 9. Save Result
     mixed_audio = outputs[mic.name]
     rir = rirs[mic.name]
 
     if mixed_audio is not None:
-        process_effects_and_save(mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE, output_dir, "spectral", effects)
+        process_effects_and_save(
+            mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE,
+            output_dir, "spectral", effects
+        )
     else:
         print("Error: No audio output generated.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Render a spectral simulation with different microphone types.")
-    parser.add_argument('--mic', type=str, default='mono', choices=['mono', 'ambisonic'],
-                        help="Type of microphone to use ('mono' or 'ambisonic').")
-    parser.add_argument('--output_dir', type=str, default='outputs', help="Output directory for saving files.")
+    parser = argparse.ArgumentParser(
+        description="Render a spectral simulation with different microphone types."
+    )
+    parser.add_argument(
+        '--mic', type=str, default='mono', choices=['mono', 'ambisonic'],
+        help="Type of microphone to use ('mono' or 'ambisonic')."
+    )
+    parser.add_argument(
+        '--output_dir', type=str, default='outputs',
+        help="Output directory for saving files."
+    )
     parser.add_argument(
         '--effects',
         type=str,
         nargs='*',
         default=None,
-        choices=list(presets.EFFECTS.keys())+["original"],
+        choices=list(presets.EFFECTS.keys()) + ["original"],
         help="Apply a post-processing effect to the output audio."
     )
     args = parser.parse_args()

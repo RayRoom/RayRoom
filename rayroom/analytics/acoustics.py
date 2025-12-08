@@ -14,16 +14,16 @@ def schroeder_integration(rir):
     # Use 64-bit floats to avoid overflow with squared values
     energy = np.power(rir.astype(np.float64), 2)
     sch = np.cumsum(energy[::-1])[::-1]
-    
+
     max_sch = np.max(sch)
-    if max_sch < 1e-20: # If signal is essentially silent
+    if max_sch < 1e-20:  # If signal is essentially silent
         return np.full_like(sch, -200.0)
 
     sch_db = 10 * np.log10(sch / max_sch + 1e-20)
     return sch_db
 
 
-def calculate_rt60(sch_db, fs, t_start=None, t_end=None):
+def _calculate_decay_time(sch_db, fs, t_start=None, t_end=None):
     """
     Calculate RT60 from a Schroeder decay curve using linear regression.
     The regression is performed between -5 dB and -25 dB (for T20),
@@ -81,6 +81,36 @@ def calculate_rt60(sch_db, fs, t_start=None, t_end=None):
 
     rt60 = -60 / slope
     return rt60
+
+
+def calculate_rt60(sch_db, fs):
+    """
+    Calculate RT60 (T20) from a Schroeder decay curve.
+    The regression is performed between -5 dB and -25 dB.
+
+    :param sch_db: Schroeder decay curve in dB.
+    :type sch_db: np.ndarray
+    :param fs: Sampling frequency in Hz.
+    :type fs: int
+    :return: The calculated RT60 value in seconds.
+    :rtype: float
+    """
+    return _calculate_decay_time(sch_db, fs, t_start=-5, t_end=-25)
+
+
+def calculate_edt(sch_db, fs):
+    """
+    Calculate Early Decay Time (EDT) from a Schroeder decay curve.
+    The regression is performed between 0 dB and -10 dB.
+
+    :param sch_db: Schroeder decay curve in dB.
+    :type sch_db: np.ndarray
+    :param fs: Sampling frequency in Hz.
+    :type fs: int
+    :return: The calculated EDT value in seconds.
+    :rtype: float
+    """
+    return _calculate_decay_time(sch_db, fs, t_start=0, t_end=-10)
 
 
 def octave_band_filter(data, fs, center_freq, order=4):

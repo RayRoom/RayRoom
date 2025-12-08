@@ -1,16 +1,19 @@
 import os
 import sys
 import argparse
+import json
 
 from rayroom import (
     HybridRenderer,
 )
+from rayroom.analytics.performance import PerformanceMonitor
 from rayroom.effects import presets
 from demo_utils import (
     create_demo_room,
     generate_layouts,
     process_effects_and_save,
     DEFAULT_SAMPLING_RATE,
+    save_performance_metrics,
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -56,15 +59,17 @@ def main(mic_type='mono', output_dir='outputs/hybrid', effects=None):
     # RayTracer will skip specular reflections <= 2.
     print("Starting Hybrid Rendering pipeline (ISM Order 2 + Ray Tracing)...")
 
-    outputs, _, rirs = renderer.render(
-        n_rays=20000,       # Reduced ray count since early reflections are exact
-        max_hops=40,
-        rir_duration=1.5,
-        record_paths=True,
-        interference=False,
-        ism_order=2,         # Enable Hybrid Mode
-        show_path_plot=False
-    )
+    with PerformanceMonitor() as monitor:
+        outputs, _, rirs = renderer.render(
+            n_rays=20000,       # Reduced ray count since early reflections are exact
+            max_hops=40,
+            rir_duration=1.5,
+            record_paths=True,
+            interference=False,
+            ism_order=2,         # Enable Hybrid Mode
+            show_path_plot=False
+        )
+    save_performance_metrics(monitor, output_dir, "hybrid")
 
     # 8. Save Result
     mixed_audio = outputs[mic.name]
@@ -72,23 +77,31 @@ def main(mic_type='mono', output_dir='outputs/hybrid', effects=None):
 
     if mixed_audio is not None:
         process_effects_and_save(
-            mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE, output_dir, "hybrid", effects
+            mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE,
+            output_dir, "hybrid", effects
         )
     else:
         print("Error: No audio output generated.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Render a hybrid simulation with different microphone types.")
-    parser.add_argument('--mic', type=str, default='mono', choices=['mono', 'ambisonic'],
-                        help="Type of microphone to use ('mono' or 'ambisonic').")
-    parser.add_argument('--output_dir', type=str, default='outputs', help="Output directory for saving files.")
+    parser = argparse.ArgumentParser(
+        description="Render a hybrid simulation with different microphone types."
+    )
+    parser.add_argument(
+        '--mic', type=str, default='mono', choices=['mono', 'ambisonic'],
+        help="Type of microphone to use ('mono' or 'ambisonic')."
+    )
+    parser.add_argument(
+        '--output_dir', type=str, default='outputs',
+        help="Output directory for saving files."
+    )
     parser.add_argument(
         '--effects',
         type=str,
         nargs='*',
         default=None,
-        choices=list(presets.EFFECTS.keys())+["original"],
+        choices=list(presets.EFFECTS.keys()) + ["original"],
         help="Apply a post-processing effect to the output audio."
     )
     args = parser.parse_args()

@@ -1,16 +1,19 @@
 import os
 import sys
 import argparse
+import json
 
 from rayroom import (
     RaytracingRenderer,
 )
+from rayroom.analytics.performance import PerformanceMonitor
 from rayroom.effects import presets
 from demo_utils import (
     create_demo_room,
     generate_layouts,
     process_effects_and_save,
     DEFAULT_SAMPLING_RATE,
+    save_performance_metrics,
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -56,11 +59,13 @@ def main(mic_type='mono', output_dir='outputs', effects=None):
 
     # 8. Render
     print("Starting Ray-tracing Rendering pipeline...")
-    outputs, rirs = renderer.render(
-        n_rays=20000,
-        max_hops=50,
-        rir_duration=1.5
-    )
+    with PerformanceMonitor() as monitor:
+        outputs, rirs = renderer.render(
+            n_rays=20000,
+            max_hops=50,
+            rir_duration=1.5
+        )
+    save_performance_metrics(monitor, output_dir, "raytracing")
 
     # 9. Save Result
     mixed_audio = outputs[mic.name]
@@ -71,21 +76,29 @@ def main(mic_type='mono', output_dir='outputs', effects=None):
         return
 
     process_effects_and_save(
-        mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE, output_dir, "raytracing", effects
+        mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE,
+        output_dir, "raytracing", effects
     )
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Render a raytracing room simulation with different microphone types.")
-    parser.add_argument('--mic', type=str, default='mono', choices=['mono', 'ambisonic'],
-                        help="Type of microphone to use ('mono' or 'ambisonic').")
-    parser.add_argument('--output_dir', type=str, default='outputs', help="Output directory for saving files.")
+    parser = argparse.ArgumentParser(
+        description="Render a raytracing room simulation with different microphone types."
+    )
+    parser.add_argument(
+        '--mic', type=str, default='mono', choices=['mono', 'ambisonic'],
+        help="Type of microphone to use ('mono' or 'ambisonic')."
+    )
+    parser.add_argument(
+        '--output_dir', type=str, default='outputs',
+        help="Output directory for saving files."
+    )
     parser.add_argument(
         '--effects',
         type=str,
         nargs='*',
         default=None,
-        choices=list(presets.EFFECTS.keys())+["original"],
+        choices=list(presets.EFFECTS.keys()) + ["original"],
         help="Apply a post-processing effect to the output audio."
     )
     args = parser.parse_args()

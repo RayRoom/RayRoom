@@ -1,14 +1,17 @@
 import os
 import sys
 import argparse
+import json
 
 from rayroom import RadiosityRenderer
+from rayroom.analytics.performance import PerformanceMonitor
 from rayroom.effects import presets
 from demo_utils import (
     create_demo_room,
     generate_layouts,
     process_effects_and_save,
     DEFAULT_SAMPLING_RATE,
+    save_performance_metrics,
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -52,31 +55,42 @@ def main(mic_type='mono', output_dir='outputs/radiosity', effects=None):
 
     # 8. Render
     print("Starting Radiosity Rendering pipeline (ISM Order 2 + Radiosity)...")
-    outputs, rirs = renderer.render(
-        ism_order=2,
-        rir_duration=1.5
-    )
+    with PerformanceMonitor() as monitor:
+        outputs, rirs = renderer.render(
+            ism_order=2,
+            rir_duration=1.5
+        )
+    save_performance_metrics(monitor, output_dir, "radiosity")
 
     # 9. Save Result
     mixed_audio = outputs[mic.name]
     rir = rirs[mic.name]
 
     if mixed_audio is not None:
-        process_effects_and_save(mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE, output_dir, "radiosity", effects)
+        process_effects_and_save(
+            mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE,
+            output_dir, "radiosity", effects
+        )
     else:
         print("Error: No audio output generated.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Render a radiosity simulation.")
-    parser.add_argument('--mic', type=str, default='mono', choices=['mono', 'ambisonic'], help="Microphone type.")
-    parser.add_argument('--output_dir', type=str, default='outputs/radiosity', help="Output directory.")
+    parser.add_argument(
+        '--mic', type=str, default='mono', choices=['mono', 'ambisonic'],
+        help="Microphone type."
+    )
+    parser.add_argument(
+        '--output_dir', type=str, default='outputs/radiosity',
+        help="Output directory."
+    )
     parser.add_argument(
         '--effects',
         type=str,
         nargs='*',
         default=None,
-        choices=list(presets.EFFECTS.keys())+["original"],
+        choices=list(presets.EFFECTS.keys()) + ["original"],
         help="Apply a post-processing effect to the output audio."
     )
     args = parser.parse_args()
