@@ -280,7 +280,7 @@ class DGFEMSolver:
         self.room = room
         self.config = config or DGFEMConfig()
         self.c = C_SOUND
-        self.rho = 1.225 # kg/m^3, air density
+        self.rho = 1.225  # kg/m^3, air density
 
         # Physics constants
         self.bulk_modulus = self.rho * self.c**2

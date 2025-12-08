@@ -1,4 +1,4 @@
-# Discontinuous Galerkin Finite Element Method (DG-FEM) Engine
+# Discontinuous Galerkin Finite Element Method (DG-FEM) Methodology
 
 This engine implements a time-domain acoustic wave propagation solver based on the Discontinuous Galerkin Finite Element Method (DG-FEM). It is a wave-based method that numerically solves the acoustic wave equation, making it highly accurate for low-to-mid frequencies where phenomena like diffraction and room modes are prominent.
 
@@ -11,10 +11,10 @@ graph LR
     A[Input: Room Geometry, Source/Receiver] --> B{Generate Tetrahedral Mesh};
     B --> C{Define Nodal Basis Functions};
     C --> D{Time-Stepping Loop};
-    D -- For each time step --> E{Compute Volume Integrals (Derivatives)};
-    E --> F{Compute Surface Integrals (Flux)};
-    F --> G{Update Pressure & Velocity (RK4)};
-    G -- Record pressure at receiver --> H[Construct RIR];
+    D -- "per time step" --> E{Compute Volume Integrals};
+    E --> F{Compute Surface Integrals};
+    F --> G{Update State - RK4};
+    G -- "record pressure" --> H[Construct RIR];
     D --> H;
     H --> I[Final RIR];
 ```
@@ -47,45 +47,6 @@ The Discontinuous Galerkin method allows the solution to be discontinuous across
 -   **Time Integration:** An explicit fourth-order Runge-Kutta scheme is used for stable and accurate time-stepping. The time step size is determined by the CFL condition to ensure numerical stability.
 -   **Numerical Flux:** An upwind flux (Lax-Friedrichs) is used to compute the interaction between adjacent, discontinuous elements, ensuring correct wave propagation across the mesh.
 -   **GPU Acceleration:** The engine can leverage CuPy for GPU acceleration, which significantly speeds up the computationally intensive parts of the simulation.
-
-## Usage
-
-The `DGFEMSolver` class is the main interface for this engine. It takes a `Room` object and a `DGFEMConfig` object for configuration. The `compute_rir` method runs the simulation and returns the Room Impulse Response.
-
-```python
-import numpy as np
-from rayroom.room.base import Room, SoundSource, Microphone
-from rayroom.engines.dgfem.dgfem import DGFEMSolver, DGFEMConfig
-
-# Create a room
-room_dim = [4, 5, 3]
-room = Room(room_dim)
-
-# Add a source and a microphone
-room.add_source(SoundSource(position=[1, 1, 1.5]))
-room.add_mic(Microphone(position=[3, 4, 1.5]))
-
-# Configure the DG-FEM solver
-config = DGFEMConfig(
-    polynomial_order=2,
-    mesh_resolution=0.5
-)
-
-# Initialize and run the solver
-solver = DGFEMSolver(room, config)
-rir = solver.compute_rir(duration=0.5)
-
-# The result is the Room Impulse Response
-print(f"RIR computed with {len(rir)} samples.")
-```
-
-## When to Use
-
-This engine is particularly well-suited for:
-
-- **Low to Mid Frequencies**: Accurate simulation of wave-based effects that are prominent at lower frequencies (e.g., below 1 kHz).
-- **Small to Medium Rooms**: The computational cost of FEM-based methods increases with room size and frequency, making it ideal for smaller environments where wave effects are critical.
-- **High-Accuracy Benchmarking**: Can be used as a reference for benchmarking other, more approximate methods like ray tracing.
 
 ## Seminal Papers
 

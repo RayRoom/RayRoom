@@ -81,9 +81,9 @@ class HybridDGFEMMethod:
 
         # Determine which histogram to use based on receiver type
         histogram = []
-        if hasattr(receiver, 'amplitude_histogram'): # Mono receiver
+        if hasattr(receiver, 'amplitude_histogram'):  # Mono receiver
             histogram = receiver.amplitude_histogram
-        elif hasattr(receiver, 'w_histogram'): # Ambisonic, use W channel for now
+        elif hasattr(receiver, 'w_histogram'):  # Ambisonic, use W channel for now
             histogram = receiver.w_histogram
 
         for time, amplitude in histogram:
@@ -110,7 +110,7 @@ class HybridDGFEMMethod:
 
         # 2. Compute high-frequency RIR with geometrical methods
         print("\n--- Running Geometrical Acoustics for high frequencies ---")
-        
+
         # Reset receivers and run ISM
         self._reset_receivers()
         for source in self.room.sources:
@@ -128,7 +128,7 @@ class HybridDGFEMMethod:
                 n_rays=self.config.raytracer_config.get("num_rays", 10000)
             )
         rir_ray = self._get_rir_from_receivers(duration)
-        
+
         rir_hf = self._combine_ism_raytracer(rir_ism, rir_ray)
 
         # 3. Combine low and high frequency RIRs
