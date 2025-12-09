@@ -339,7 +339,8 @@ def _create_composite_object(parts):
 
     for verts, faces in parts:
         all_verts.append(verts)
-        offset_faces = (np.array(faces) + num_verts).tolist()
+        # Handle ragged face arrays (e.g., from cylinders with tri and quad faces)
+        offset_faces = [[vertex_index + num_verts for vertex_index in face] for face in faces]
         all_faces.extend(offset_faces)
         num_verts += len(verts)
 
@@ -347,6 +348,68 @@ def _create_composite_object(parts):
         return np.array([]), []
 
     return np.vstack(all_verts), all_faces
+
+
+def _create_cylinder_vertices_faces(radius, height, resolution=16, center_bottom_pos=(0, 0, 0)):
+    """
+    Creates vertices and faces for a cylinder with inward-facing normals.
+
+    :param radius: Radius of the cylinder.
+    :type radius: float
+    :param height: Height of the cylinder.
+    :type height: float
+    :param resolution: Number of vertices in the circular cross-section.
+    :type resolution: int, optional
+    :param center_bottom_pos: [x, y, z] of the center of the bottom face.
+    :type center_bottom_pos: list or np.ndarray
+    :return: Tuple of (vertices, faces)
+    :rtype: (np.ndarray, list)
+    """
+    x, y, z = center_bottom_pos
+
+    verts = []
+
+    # Bottom circle vertices (indices 0 to resolution-1)
+    for i in range(resolution):
+        angle = 2 * np.pi * i / resolution
+        verts.append([x + radius * np.cos(angle), y + radius * np.sin(angle), z])
+
+    # Top circle vertices (indices resolution to 2*resolution-1)
+    for i in range(resolution):
+        angle = 2 * np.pi * i / resolution
+        verts.append([x + radius * np.cos(angle), y + radius * np.sin(angle), z + height])
+
+    # Bottom center (index 2*resolution)
+    verts.append([x, y, z])
+    bottom_center_idx = 2 * resolution
+
+    # Top center (index 2*resolution + 1)
+    verts.append([x, y, z + height])
+    top_center_idx = 2 * resolution + 1
+
+    faces = []
+
+    # Side faces (quads, inward normal)
+    for i in range(resolution):
+        p_bl = i
+        p_br = (i + 1) % resolution
+        p_tl = i + resolution
+        p_tr = (i + 1) % resolution + resolution
+        faces.append([p_bl, p_tl, p_tr, p_br])
+
+    # Bottom cap faces (triangles, inward normal pointing +z)
+    for i in range(resolution):
+        p1 = i
+        p2 = (i + 1) % resolution
+        faces.append([bottom_center_idx, p1, p2])
+
+    # Top cap faces (triangles, inward normal pointing -z)
+    for i in range(resolution):
+        p1 = i + resolution
+        p2 = (i + 1) % resolution + resolution
+        faces.append([top_center_idx, p2, p1])
+
+    return np.array(verts), faces
 
 
 class Chair(Furniture):
@@ -676,3 +739,587 @@ class Clock(Furniture):
         dims = [size, thickness, size]
         verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, -size / 2])
         super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Smartphone(Furniture):
+    """
+    Represents a smartphone as a thin box.
+    The object's position is the center of its bottom face.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [0.07, 0.15, 0.008]  # width, depth, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Tablet(Furniture):
+    """
+    Represents a tablet as a thin box.
+    The object's position is the center of its bottom face.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [0.17, 0.25, 0.007]  # width, depth, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class EchoDot5(Furniture):
+    """
+    Represents an Amazon Echo Dot (5th Gen) as a sphere-like box.
+    The object's position is the center of its bottom face.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="fabric"):
+        dims = [0.1, 0.1, 0.086]  # diameter, diameter, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class EchoDot2(Furniture):
+    """
+    Represents an Amazon Echo Dot (2nd Gen) as a short cylinder (box).
+    The object's position is the center of its bottom face.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [0.084, 0.084, 0.032]  # diameter, diameter, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class EchoShow5(Furniture):
+    """
+    Represents an Amazon Echo Show 5 as a wedge-like box.
+    The object's position is the center of its bottom face.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [0.147, 0.082, 0.091]  # width, depth, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class GoogleNestMini(Furniture):
+    """
+    Represents a Google Nest Mini as a puck-like box.
+    The object's position is the center of its bottom face.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="fabric"):
+        dims = [0.098, 0.098, 0.042]  # diameter, diameter, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class AmazonEcho2(Furniture):
+    """
+    Represents an Amazon Echo (2nd Gen) as a cylinder.
+    The object's position is the center of its bottom face.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="fabric", resolution=16):
+        """
+        Initialize an AmazonEcho2 object.
+
+        :param name: Name of the object.
+        :type name: str
+        :param position: [x, y, z] coordinates for the object's bottom center.
+        :type position: list or np.ndarray
+        :param rotation_z: Rotation in degrees around the Z-axis.
+        :type rotation_z: float, optional
+        :param material_name: Name of the material. Defaults to "fabric".
+        :type material_name: str
+        :param resolution: The number of vertices for the circular cross-section. Defaults to 16.
+        :type resolution: int, optional
+        """
+        radius = 0.088 / 2
+        height = 0.148
+        verts, faces = _create_cylinder_vertices_faces(radius, height, resolution=resolution, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class CRTMonitor(Furniture):
+    """
+    Represents a CRT monitor.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        parts = []
+        # Screen
+        screen_dims = [0.4, 0.4, 0.35]
+        screen_pos = [0, 0, 0.1]
+        parts.append(_create_box_vertices_faces(screen_dims, screen_pos))
+        # Stand
+        stand_dims = [0.2, 0.2, 0.1]
+        stand_pos = [0, 0, 0]
+        parts.append(_create_box_vertices_faces(stand_dims, stand_pos))
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class LCDMonitor(Furniture):
+    """
+    Represents an LCD monitor.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        parts = []
+        # Screen
+        screen_dims = [0.5, 0.05, 0.3]
+        screen_pos = [0, 0, 0.1]
+        parts.append(_create_box_vertices_faces(screen_dims, screen_pos))
+        # Stand
+        stand_dims = [0.2, 0.2, 0.1]
+        stand_pos = [0, 0, 0]
+        parts.append(_create_box_vertices_faces(stand_dims, stand_pos))
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class iMac(Furniture):
+    """
+    Represents an iMac-style computer.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        parts = []
+        # Screen
+        screen_dims = [0.55, 0.05, 0.4]
+        screen_pos = [0, 0, 0.1]
+        parts.append(_create_box_vertices_faces(screen_dims, screen_pos))
+        # Stand
+        stand_dims = [0.2, 0.2, 0.1]
+        stand_pos = [0, 0, 0]
+        parts.append(_create_box_vertices_faces(stand_dims, stand_pos))
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Laptop(Furniture):
+    """
+    Represents a laptop in an open position.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        parts = []
+        # Base
+        base_dims = [0.35, 0.25, 0.02]
+        parts.append(_create_box_vertices_faces(base_dims, [0, 0, 0]))
+        # Screen (at an angle)
+        screen_dims = [0.35, 0.01, 0.25]
+        screen_verts, screen_faces = _create_box_vertices_faces(screen_dims, [0, 0, 0])
+        # Rotate screen part
+        angle = np.deg2rad(100)  # 100 degrees open
+        rotation_matrix = np.array([
+            [1, 0, 0],
+            [0, np.cos(angle), -np.sin(angle)],
+            [0, np.sin(angle), np.cos(angle)]
+        ])
+        screen_verts = np.dot(screen_verts, rotation_matrix.T)
+        # Position screen part
+        screen_verts += np.array([0, -0.125, 0.02])
+        parts.append((screen_verts, screen_faces))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name=name,
+                         position=position,
+                         vertices=vertices.tolist(),
+                         faces=faces,
+                         material=get_material(material_name),
+                         rotation_z=rotation_z)
+
+
+class Printer(Furniture):
+    """
+    Represents a standard office printer.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [0.4, 0.45, 0.3]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class StackOfPaper(Furniture):
+    """
+    Represents a stack of A4 paper.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="paper"):
+        dims = [0.210, 0.297, 0.05]  # A4 size, 5cm high
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class TissueBox(Furniture):
+    """
+    Represents a tissue box.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="paper"):
+        dims = [0.22, 0.12, 0.1]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class RoundBin(Furniture):
+    """
+    Represents a round trash bin.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        radius = 0.15
+        height = 0.4
+        verts, faces = _create_cylinder_vertices_faces(radius, height, resolution=16, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class SquareBin(Furniture):
+    """
+    Represents a square trash bin.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [0.3, 0.3, 0.4]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class CeilingFan(Furniture):
+    """
+    Represents a ceiling fan.
+    The object's position is where it attaches to the ceiling.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        parts = []
+        # Mount
+        mount_radius = 0.08
+        mount_height = 0.1
+        mount_verts, mount_faces = _create_cylinder_vertices_faces(mount_radius, mount_height, resolution=12, center_bottom_pos=[0, 0, -mount_height])
+        parts.append((mount_verts, mount_faces))
+        # Motor
+        motor_radius = 0.12
+        motor_height = 0.2
+        motor_verts, motor_faces = _create_cylinder_vertices_faces(motor_radius, motor_height, resolution=16, center_bottom_pos=[0, 0, -mount_height - motor_height])
+        parts.append((motor_verts, motor_faces))
+        # Blades (simple boxes)
+        num_blades = 5
+        blade_dims = [0.5, 0.1, 0.01]
+        for i in range(num_blades):
+            angle = 2 * np.pi * i / num_blades
+            blade_pos = [
+                (motor_radius + blade_dims[0] / 2) * np.cos(angle),
+                (motor_radius + blade_dims[0] / 2) * np.sin(angle),
+                -mount_height - motor_height
+            ]
+            blade_verts, blade_faces = _create_box_vertices_faces(blade_dims, center_bottom_pos=blade_pos)
+            # Rotate blade
+            cos_a, sin_a = np.cos(angle), np.sin(angle)
+            rotation_matrix = np.array([[cos_a, -sin_a, 0], [sin_a, cos_a, 0], [0, 0, 1]])
+            blade_verts = np.dot(blade_verts, rotation_matrix.T)
+            parts.append((blade_verts, blade_faces))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name=name,
+                         position=position,
+                         vertices=vertices.tolist(),
+                         faces=faces,
+                         material=get_material(material_name),
+                         rotation_z=rotation_z)
+
+
+class ACWallUnit(Furniture):
+    """
+    Represents an AC Wall Unit.
+    Position is center of the face attached to the wall.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [0.8, 0.25, 0.3]  # width, depth, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, -dims[1] / 2, -dims[2] / 2])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class TallFanOnFoot(Furniture):
+    """
+    Represents a tall fan on a foot.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        parts = []
+        # Base
+        base_verts, base_faces = _create_cylinder_vertices_faces(
+            0.2, 0.05, resolution=16, center_bottom_pos=[0, 0, 0]
+        )
+        parts.append((base_verts, base_faces))
+        # Pole
+        pole_verts, pole_faces = _create_cylinder_vertices_faces(
+            0.02, 1.2, resolution=8, center_bottom_pos=[0, 0, 0.05]
+        )
+        parts.append((pole_verts, pole_faces))
+        # Head
+        head_verts, head_faces = _create_cylinder_vertices_faces(
+            0.2, 0.15, resolution=16, center_bottom_pos=[0, 0, 1.25]
+        )
+        parts.append((head_verts, head_faces))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class SmallFanOnFoot(Furniture):
+    """
+    Represents a small fan on a foot.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        parts = []
+        # Base
+        base_verts, base_faces = _create_cylinder_vertices_faces(
+            0.1, 0.03, resolution=16, center_bottom_pos=[0, 0, 0]
+        )
+        parts.append((base_verts, base_faces))
+        # Pole
+        pole_verts, pole_faces = _create_cylinder_vertices_faces(
+            0.015, 0.4, resolution=8, center_bottom_pos=[0, 0, 0.03]
+        )
+        parts.append((pole_verts, pole_faces))
+        # Head
+        head_verts, head_faces = _create_cylinder_vertices_faces(
+            0.15, 0.1, resolution=16, center_bottom_pos=[0, 0, 0.43]
+        )
+        parts.append((head_verts, head_faces))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class HospitalBed(Furniture):
+    """
+    Represents a hospital bed.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+        parts = []
+        # Mattress
+        mattress_dims = [0.9, 2.0, 0.2]
+        parts.append(_create_box_vertices_faces(mattress_dims, [0, 0, 0.4]))
+        # Frame
+        frame_dims = [0.9, 2.0, 0.4]
+        parts.append(_create_box_vertices_faces(frame_dims, [0, 0, 0]))
+        # Headboard
+        headboard_dims = [0.9, 0.05, 0.6]
+        parts.append(_create_box_vertices_faces(headboard_dims, [0, -1.0, 0.4]))
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class ExaminingTable(Furniture):
+    """
+    Represents an examining table.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+        dims = [0.7, 1.8, 0.8]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class DentalChair(Furniture):
+    """
+    Represents a dental chair.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        parts = []
+        # Base
+        base_verts, base_faces = _create_cylinder_vertices_faces(
+            0.3, 0.1, resolution=16, center_bottom_pos=[0, 0, 0]
+        )
+        parts.append((base_verts, base_faces))
+        # Seat
+        seat_dims = [0.6, 0.5, 0.1]
+        parts.append(_create_box_vertices_faces(seat_dims, [0, 0, 0.5]))
+        # Back
+        back_dims = [0.6, 0.1, 0.8]
+        back_verts, back_faces = _create_box_vertices_faces(back_dims, [0, 0, 0])
+        angle = np.deg2rad(110)
+        rotation_matrix = np.array([[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]])
+        back_verts = np.dot(back_verts, rotation_matrix.T)
+        back_verts += np.array([0, -0.25, 0.6])
+        parts.append((back_verts, back_faces))
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class MedicalStool(Furniture):
+    """
+    Represents a medical stool.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+        parts = []
+        # Seat
+        seat_verts, seat_faces = _create_cylinder_vertices_faces(
+            0.2, 0.05, resolution=16, center_bottom_pos=[0, 0, 0.5]
+        )
+        parts.append((seat_verts, seat_faces))
+        # Pole
+        pole_verts, pole_faces = _create_cylinder_vertices_faces(
+            0.02, 0.5, resolution=8, center_bottom_pos=[0, 0, 0]
+        )
+        parts.append((pole_verts, pole_faces))
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name=name,
+                         position=position,
+                         vertices=vertices.tolist(),
+                         faces=faces,
+                         material=get_material(material_name),
+                         rotation_z=rotation_z)
+
+
+class HorizontalCabinets(Furniture):
+    """
+    Represents horizontal wall-mounted cabinets.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="wood"):
+        dims = [1.5, 0.4, 0.6]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class VerticalCabinets(Furniture):
+    """
+    Represents vertical, floor-standing cabinets.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="wood"):
+        dims = [0.8, 0.6, 1.8]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Sink(Furniture):
+    """
+    Represents a sink.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+        dims = [0.6, 0.5, 0.85]  # As a cabinet with a hole on top
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Wheelchair(Furniture):
+    """
+    Represents a wheelchair.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+        parts = []
+        # Seat
+        seat_dims = [0.5, 0.5, 0.1]
+        parts.append(_create_box_vertices_faces(seat_dims, [0, 0, 0.4]))
+        # Wheels (large)
+        wheel_l_verts, wheel_l_faces = _create_cylinder_vertices_faces(
+            0.3, 0.02, 16, [0, 0, 0]
+        )
+        rot = np.deg2rad(90)
+        rot_mat = np.array([[1, 0, 0], [0, np.cos(rot), -np.sin(rot)], [0, np.sin(rot), np.cos(rot)]])
+        wheel_l_verts = np.dot(wheel_l_verts, rot_mat.T) + np.array([-0.26, 0, 0.3])
+        parts.append((wheel_l_verts, wheel_l_faces))
+        wheel_r_verts, wheel_r_faces = _create_cylinder_vertices_faces(
+            0.3, 0.02, 16, [0, 0, 0]
+        )
+        wheel_r_verts = np.dot(wheel_r_verts, rot_mat.T) + np.array([0.26, 0, 0.3])
+        parts.append((wheel_r_verts, wheel_r_faces))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Walker(Furniture):
+    """
+    Represents a walker.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+        dims = [0.6, 0.5, 0.8]
+        # Simplified as a box frame
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Defibrillator(Furniture):
+    """
+    Represents a defibrillator unit on a stand.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        parts = []
+        # Box
+        box_dims = [0.3, 0.3, 0.2]
+        parts.append(_create_box_vertices_faces(box_dims, [0, 0, 0.8]))
+        # Pole
+        pole_verts, pole_faces = _create_cylinder_vertices_faces(
+            0.02, 0.8, 8, [0, 0, 0]
+        )
+        parts.append((pole_verts, pole_faces))
+        # Base
+        base_dims = [0.4, 0.4, 0.05]
+        parts.append(_create_box_vertices_faces(base_dims, [0, 0, 0]))
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class WeighingScale(Furniture):
+    """
+    Represents a medical weighing scale.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+        parts = []
+        # Pole
+        pole_verts, pole_faces = _create_cylinder_vertices_faces(
+            0.015, 1.8, 8, [0, 0, 0]
+        )
+        parts.append((pole_verts, pole_faces))
+        # Base (simplified)
+        base_dims = [0.4, 0.4, 0.05]
+        parts.append(_create_box_vertices_faces(base_dims, [0, 0, 0]))
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class MRIScanner(Furniture):
+    """
+    Represents an MRI scanner.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [1.5, 2.5, 1.8]  # Simplified as a large box
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Ventilator(Furniture):
+    """
+    Represents a ventilator machine on a stand.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [0.5, 0.5, 1.2]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class UltrasoundMachine(Furniture):
+    """
+    Represents an ultrasound machine.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [0.6, 0.7, 1.3]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class ECG(Furniture):
+    """
+    Represents an ECG machine on a cart.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+        dims = [0.5, 0.6, 1.0]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class OperatingRoomLight(Furniture):
+    """
+    Represents an operating room light fixture.
+    Position is where it attaches to the ceiling.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+        parts = []
+        # Arm
+        arm_verts, arm_faces = _create_cylinder_vertices_faces(
+            0.05, 1.0, 8, [0, 0, -1.0]
+        )
+        parts.append((arm_verts, arm_faces))
+        # Light head
+        head_verts, head_faces = _create_cylinder_vertices_faces(
+            0.3, 0.1, 16, [0, 0, -1.1]
+        )
+        parts.append((head_verts, head_faces))
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)

@@ -7,7 +7,12 @@ from .room.objects import (
     ThreeSeatCouch, TwoSeatCouch, OneSeatCouch,
     SquareCarpet, Subwoofer, FloorstandingSpeaker,
     Window, DoubleRectangleWindow, SquareWindow,
-    Painting, FloatingTVShelf, WallShelf, KitchenCabinet, Clock
+    Painting, FloatingTVShelf, WallShelf, KitchenCabinet, Clock,
+    Smartphone, Tablet, EchoDot5, EchoDot2, EchoShow5, GoogleNestMini, AmazonEcho2,
+    CRTMonitor, LCDMonitor, iMac, Laptop, Printer, StackOfPaper, TissueBox,
+    RoundBin, SquareBin, CeilingFan, ACWallUnit, TallFanOnFoot, SmallFanOnFoot,
+    HospitalBed, ExaminingTable, DentalChair, MedicalStool, HorizontalCabinets, VerticalCabinets, Sink, Wheelchair,
+    Walker, Defibrillator, WeighingScale, MRIScanner, Ventilator, UltrasoundMachine, ECG, OperatingRoomLight
 )
 from .core.utils import generate_rir
 from .core.constants import C_SOUND

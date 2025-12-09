@@ -10,9 +10,20 @@ from rayroom import (
     AmbisonicReceiver,
     get_material,
     Person,
-    ThreeSeatCouch,
-    CoffeeTable,
-    Chair,
+    # Standard Furniture
+    ThreeSeatCouch, TwoSeatCouch, OneSeatCouch,
+    DiningTable, CoffeeTable, Chair, Desk,
+    SquareCarpet, Subwoofer, FloorstandingSpeaker,
+    # Wall Objects
+    Window, DoubleRectangleWindow, SquareWindow,
+    Painting, FloatingTVShelf, WallShelf, KitchenCabinet, Clock,
+    # Electronics
+    Smartphone, Tablet, EchoDot5, EchoDot2, EchoShow5, GoogleNestMini, AmazonEcho2,
+    # Hospital & Office Equipment
+    CRTMonitor, LCDMonitor, iMac, Laptop, Printer, StackOfPaper, TissueBox,
+    RoundBin, SquareBin, CeilingFan, ACWallUnit, TallFanOnFoot, SmallFanOnFoot,
+    HospitalBed, ExaminingTable, DentalChair, MedicalStool, HorizontalCabinets, VerticalCabinets, Sink, Wheelchair,
+    Walker, Defibrillator, WeighingScale, TV, MRIScanner, Ventilator, UltrasoundMachine, ECG, OperatingRoomLight,
 )
 from rayroom.analytics.acoustics import (
     calculate_clarity,
@@ -63,7 +74,7 @@ def create_demo_room(mic_type='mono'):
     }, fs=DEFAULT_SAMPLING_RATE)
 
     # 2. Add Receiver (Microphone) - centered
-    mic_pos = [2, 1, 1.5]
+    mic_pos = [1.2, 0.25, 1.7]
     if mic_type == 'ambisonic':
         print("Using Ambisonic Receiver.")
         mic = AmbisonicReceiver("AmbiMic", mic_pos, radius=0.02)
@@ -84,11 +95,22 @@ def create_demo_room(mic_type='mono'):
     chair = Chair("Chair", [0.5, 0.65, 0], rotation_z=-45, material_name="wood")
     room.add_furniture(chair)
 
-    couch = ThreeSeatCouch("Couch", [2.9, 0.6, 0], rotation_z=5)
+    couch = ThreeSeatCouch("Couch", [2.9, 0.6, 0], rotation_z=5, material_name="fabric")
     room.add_furniture(couch)
 
-    coffee_table = CoffeeTable("CoffeeTable", [2.5, 1.5, 0], rotation_z=5)
+    coffee_table = CoffeeTable("CoffeeTable", [2.5, 1.5, 0], rotation_z=5, material_name="wood")
     room.add_furniture(coffee_table)
+
+    window_1 = Window("Window 1", [0, 1.0, 1.5], rotation_z=90, material_name="glass")
+    room.add_furniture(window_1)
+    window_2 = DoubleRectangleWindow("Double window 2", [3.0, 0, 1.5], material_name="glass")
+    room.add_furniture(window_2)
+
+    wall_shelf = WallShelf("Wall shelf", [1.0, 0.15, 1.5], material_name="wood")
+    room.add_furniture(wall_shelf)
+
+    amazon_echo = AmazonEcho2("Amazon Echo 2", [1.2, 0.15, 1.53], material_name="fabric", resolution=10)
+    room.add_furniture(amazon_echo)
 
     # 5. Define Sources
     src1 = Source("Speaker 1", [0.7, 1.5, 1.5], power=1.0, orientation=[1, 0, 0], directivity="cardioid")
@@ -104,6 +126,110 @@ def create_demo_room(mic_type='mono'):
         "src2": src2,
         "src_bg": src_bg
     }
+
+    return room, sources, mic
+
+
+def create_huge_room(mic_type='mono'):
+    """
+    Creates a huge room with all available objects.
+    """
+    print("Creating huge room with all objects (25m x 20m x 5m)...")
+    room = Room.create_shoebox([25, 20, 5], materials={
+        "floor": get_material("concrete"),
+        "ceiling": get_material("plaster"),
+        "walls": get_material("brick")
+    }, fs=DEFAULT_SAMPLING_RATE)
+
+    # Add Receiver
+    mic_pos = [12.5, 10, 1.7]
+    if mic_type == 'ambisonic':
+        mic = AmbisonicReceiver("AmbiMic", mic_pos)
+    else:
+        mic = Receiver("MonoMic", mic_pos)
+    room.add_receiver(mic)
+
+    # === Add All Furniture and Objects ===
+    all_objects = {
+        # Living Room Zone (front-left corner)
+        "ThreeSeatCouch": ThreeSeatCouch("Couch1", [3, 4, 0], rotation_z=20),
+        "TwoSeatCouch": TwoSeatCouch("Couch2", [6, 2, 0], rotation_z=-10),
+        "OneSeatCouch": OneSeatCouch("Armchair", [2, 7, 0]),
+        "CoffeeTable": CoffeeTable("CoffeeTbl", [4, 5, 0]),
+        "DiningTable": DiningTable("DiningTbl", [8, 6, 0]),
+        "Chair": Chair("Chair1", [7.5, 5, 0]),
+        "Desk": Desk("Desk1", [2, 12, 0]),
+        "SquareCarpet": SquareCarpet("Carpet1", [4, 4, 0.01]),
+        "Subwoofer": Subwoofer("Sub1", [1, 1, 0]),
+        "FloorstandingSpeaker": FloorstandingSpeaker("SpeakerL", [1, 6, 0]),
+        "TV": TV("TV1", [4, 1, 0.8], rotation_z=0),
+        "FloatingTVShelf": FloatingTVShelf("TVShelf", [4, 1, 0.5]),
+
+        # Wall Objects (placed on various walls)
+        "Window": Window("Window1", [0, 5, 2.5], rotation_z=90),
+        "DoubleRectangleWindow": DoubleRectangleWindow("Window2", [10, 0, 2.5]),
+        "SquareWindow": SquareWindow("Window3", [25, 8, 2], rotation_z=-90),
+        "Painting": Painting("Art1", [15, 0, 3]),
+        "WallShelf": WallShelf("Shelf1", [2, 20, 3], rotation_z=180),
+        "KitchenCabinet": KitchenCabinet("K-Cabinet", [20, 0, 2.5]),
+        "Clock": Clock("Clock1", [12.5, 0, 4]),
+        "ACWallUnit": ACWallUnit("AC1", [25, 10, 4], rotation_z=-90),
+
+        # Electronics Zone (on/near desk)
+        "Smartphone": Smartphone("Phone1", [2.1, 12.1, 0.75]),
+        "Tablet": Tablet("Tablet1", [2.4, 12.2, 0.75]),
+        "EchoDot5": EchoDot5("Echo5", [1, 12, 0.75]),
+        "EchoDot2": EchoDot2("Echo2", [1, 12.3, 0.75]),
+        "EchoShow5": EchoShow5("EchoShow", [1.5, 12.5, 0.75]),
+        "GoogleNestMini": GoogleNestMini("NestMini", [1, 11.7, 0.75]),
+        "AmazonEcho2": AmazonEcho2("EchoGen2", [1, 11.4, 0.75]),
+        "CRTMonitor": CRTMonitor("CRT", [2.2, 12.5, 0.75]),
+        "LCDMonitor": LCDMonitor("LCD", [1.8, 12.5, 0.75]),
+        "iMac": iMac("iMac1", [2, 11.8, 0.75]),
+        "Laptop": Laptop("Laptop1", [2.2, 11.9, 0.75]),
+        "Printer": Printer("Printer1", [1, 13, 0]),
+        "StackOfPaper": StackOfPaper("Paper1", [1, 13.5, 0]),
+
+        # Hospital Zone (back-right corner)
+        "HospitalBed": HospitalBed("H-Bed", [22, 17, 0]),
+        "ExaminingTable": ExaminingTable("ExamTbl", [18, 17, 0]),
+        "DentalChair": DentalChair("DentistChair", [15, 17, 0]),
+        "MedicalStool": MedicalStool("Stool1", [16, 16, 0]),
+        "HorizontalCabinets": HorizontalCabinets("HCabinet", [24, 15, 1]),
+        "VerticalCabinets": VerticalCabinets("VCabinet", [24, 14, 0]),
+        "Sink": Sink("Sink1", [24, 12, 0]),
+        "Wheelchair": Wheelchair("WC1", [20, 15, 0]),
+        "Walker": Walker("Walker1", [21, 15, 0]),
+        "Defibrillator": Defibrillator("Defib1", [18, 15, 0]),
+        "WeighingScale": WeighingScale("Scale1", [17, 15, 0]),
+        "MRIScanner": MRIScanner("MRI", [18, 10, 0]),
+        "Ventilator": Ventilator("Vent1", [20, 18, 0]),
+        "UltrasoundMachine": UltrasoundMachine("Ultra1", [17, 18, 0]),
+        "ECG": ECG("ECG1", [16, 18, 0]),
+        "OperatingRoomLight": OperatingRoomLight("OR-Light", [19, 17, 5]),
+
+        # Miscellaneous
+        "Person": Person("Bob", [10, 10, 0]),
+        "RoundBin": RoundBin("Bin1", [1, 14, 0]),
+        "SquareBin": SquareBin("Bin2", [14, 1, 0]),
+        "CeilingFan": CeilingFan("Fan1", [12.5, 10, 5]),
+        "TallFanOnFoot": TallFanOnFoot("TallFan", [1, 18, 0]),
+        "SmallFanOnFoot": SmallFanOnFoot("SmallFan", [14, 18, 0]),
+        "TissueBox": TissueBox("Tissues", [2.1, 12, 0.75+0.3]),
+    }
+
+    for name, obj in all_objects.items():
+        room.add_furniture(obj)
+
+    # Define Sources
+    src1 = Source("Source1", [5, 5, 2])
+    src2 = Source("Source2", [20, 15, 1.8])
+    src_bg = Source("Background Noise", [1, 1, 4.5], power=0.5)
+    room.add_source(src1)
+    room.add_source(src2)
+    room.add_source(src_bg)
+
+    sources = {"src1": src1, "src2": src2, "src_bg": src_bg}
 
     return room, sources, mic
 

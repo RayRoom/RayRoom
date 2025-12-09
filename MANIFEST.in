@@ -2,6 +2,7 @@ include README.md
 include LICENSE
 include requirements.txt
 recursive-include examples *.py
+recursive-include rayroom/room/templates *.html
 global-exclude *.wav
 global-exclude *.png
 global-exclude *.jpg
