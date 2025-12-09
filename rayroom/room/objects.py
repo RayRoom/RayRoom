@@ -615,7 +615,7 @@ class TV(Furniture):
     """
     Represents a simple TV as a thin box.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="default"):
+    def __init__(self, name, position, rotation_z=0, material_name="glass"):
         dims = [1.2, 0.05, 0.7]  # width, depth, height
         verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
         super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
@@ -716,9 +716,9 @@ class OneSeatCouch(Furniture):
 
 class SquareCarpet(Furniture):
     """
-    Represents a square carpet as a flat box.
+    Represents a square of thick carpet as a flat box.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="carpet"):
+    def __init__(self, name, position, rotation_z=0, material_name="thick_carpet"):
         dims = [2.0, 2.0, 0.02]  # width, depth, height
         verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
         super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
@@ -943,7 +943,7 @@ class Smartphone(Furniture):
     Represents a smartphone as a thin box.
     The object's position is the center of its bottom face.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+    def __init__(self, name, position, rotation_z=0, material_name="glass"):
         dims = [0.07, 0.15, 0.008]  # width, depth, height
         verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
         super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
@@ -954,7 +954,7 @@ class Tablet(Furniture):
     Represents a tablet as a thin box.
     The object's position is the center of its bottom face.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+    def __init__(self, name, position, rotation_z=0, material_name="glass"):
         dims = [0.17, 0.25, 0.007]  # width, depth, height
         verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
         super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
@@ -1094,7 +1094,7 @@ class iMac(Furniture):
     """
     Represents an iMac-style computer with a screen and L-shaped stand.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+    def __init__(self, name, position, rotation_z=0, material_name="glass"):
         parts = []
 
         # L-shaped stand
@@ -1229,7 +1229,7 @@ class RoundBin(Furniture):
     """
     Represents a round trash bin.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+    def __init__(self, name, position, rotation_z=0, material_name="metal"):
         radius = 0.15
         height = 0.4
         verts, faces = _create_cylinder_vertices_faces(radius, height, resolution=16, center_bottom_pos=[0, 0, 0])
@@ -1251,7 +1251,7 @@ class CeilingFan(Furniture):
     Represents a ceiling fan.
     The object's position is where it attaches to the ceiling.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+    def __init__(self, name, position, rotation_z=0, material_name="wood"):
         parts = []
         # Mount
         mount_radius = 0.08
@@ -1344,7 +1344,7 @@ class TallFanOnFoot(Furniture):
             head_radius * 0.3, head_depth, resolution=12, center_bottom_pos=[0, 0, -head_depth/2]
         )
         head_assembly_parts.append((motor_verts, motor_faces))
-        
+
         # Blades
         num_blades = 3
         blade_len = head_radius * 1.6
@@ -1367,7 +1367,7 @@ class TallFanOnFoot(Furniture):
                 [0, np.sin(pitch_angle), np.cos(pitch_angle)]
             ])
             blade_verts = np.dot(blade_verts, pitch_rot_mat.T)
-            
+
             # 3. Translate blade away from center along X-axis
             blade_pos_x = motor_radius + blade_len / 2
             blade_verts += np.array([blade_pos_x, 0, 0])
@@ -1377,11 +1377,11 @@ class TallFanOnFoot(Furniture):
             cos_a, sin_a = np.cos(angle), np.sin(angle)
             z_rot_mat = np.array([[cos_a, -sin_a, 0], [sin_a, cos_a, 0], [0, 0, 1]])
             blade_verts = np.dot(blade_verts, z_rot_mat.T)
-            
+
             head_assembly_parts.append((blade_verts, blade_faces))
 
         head_verts, head_faces = _create_composite_object(head_assembly_parts)
-        
+
         # Rotate head assembly to be vertical (blades vertical, fan points forward in Y)
         rot = np.deg2rad(90)
         rot_mat = np.array([[1, 0, 0], [0, np.cos(rot), -np.sin(rot)], [0, np.sin(rot), np.cos(rot)]])
@@ -1410,7 +1410,7 @@ class SmallFanOnFoot(Furniture):
             0.015, 0.4, resolution=8, center_bottom_pos=[0, 0, 0.03]
         )
         parts.append((pole_verts, pole_faces))
-        
+
         # Fan Head Assembly (created at origin, pointing along Z-axis)
         head_assembly_parts = []
         head_radius = 0.15
@@ -1421,7 +1421,7 @@ class SmallFanOnFoot(Furniture):
             head_radius * 0.3, head_depth, resolution=12, center_bottom_pos=[0, 0, -head_depth/2]
         )
         head_assembly_parts.append((motor_verts, motor_faces))
-        
+
         # Blades
         num_blades = 3
         blade_len = head_radius * 1.6
@@ -1444,7 +1444,7 @@ class SmallFanOnFoot(Furniture):
                 [0, np.sin(pitch_angle), np.cos(pitch_angle)]
             ])
             blade_verts = np.dot(blade_verts, pitch_rot_mat.T)
-            
+
             # 3. Translate blade away from center along X-axis
             blade_pos_x = motor_radius + blade_len / 2
             blade_verts += np.array([blade_pos_x, 0, 0])
@@ -1454,11 +1454,11 @@ class SmallFanOnFoot(Furniture):
             cos_a, sin_a = np.cos(angle), np.sin(angle)
             z_rot_mat = np.array([[cos_a, -sin_a, 0], [sin_a, cos_a, 0], [0, 0, 1]])
             blade_verts = np.dot(blade_verts, z_rot_mat.T)
-            
+
             head_assembly_parts.append((blade_verts, blade_faces))
 
         head_verts, head_faces = _create_composite_object(head_assembly_parts)
-        
+
         # Rotate head assembly to be vertical (blades vertical, fan points forward in Y)
         rot = np.deg2rad(90)
         rot_mat = np.array([[1, 0, 0], [0, np.cos(rot), -np.sin(rot)], [0, np.sin(rot), np.cos(rot)]])
@@ -1475,7 +1475,7 @@ class HospitalBed(Furniture):
     """
     Represents a hospital bed with a frame, mattress, headboard, footboard, and side rails.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
         parts = []
         # Dimensions
         bed_width, bed_depth, bed_height = 0.9, 2.0, 0.6
@@ -1508,7 +1508,7 @@ class ExaminingTable(Furniture):
     """
     Represents an examining table with a padded top and a base frame.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+    def __init__(self, name, position, rotation_z=0, material_name="leather"):
         parts = []
         # Dimensions
         top_width, top_depth, top_height = 0.7, 1.8, 0.1
@@ -1536,7 +1536,7 @@ class DentalChair(Furniture):
     """
     Represents a dental chair with a base, seat, backrest, headrest, leg rest, and armrests.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="plastic"):
+    def __init__(self, name, position, rotation_z=0, material_name="leather"):
         parts = []
         # Dimensions
         seat_width, seat_depth, seat_thickness = 0.6, 0.6, 0.1
@@ -1685,7 +1685,7 @@ class Sink(Furniture):
     """
     Represents a sink within a cabinet, featuring a semi-cylindrical basin.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+    def __init__(self, name, position, rotation_z=0, material_name="ceramic"):
         parts = []
         # --- Dimensions ---
         cab_w, cab_d, cab_h = 0.6, 0.5, 0.8  # Cabinet dimensions
@@ -1754,7 +1754,6 @@ class Sink(Furniture):
         )
         parts.append((spout_verts, spout_faces))
 
-
         # --- Final Assembly ---
         vertices, faces = _create_composite_object(parts)
         super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
@@ -1767,7 +1766,7 @@ class Wheelchair(Furniture):
     def __init__(self, name, position, rotation_z=0, material_name="metal"):
         parts = []
         seat_width, seat_depth, seat_height = 0.5, 0.5, 0.45
-        
+
         # Seat
         seat_dims = [seat_width, seat_depth, 0.05]
         parts.append(_create_box_vertices_faces(seat_dims, [0, 0, seat_height]))
@@ -1776,7 +1775,7 @@ class Wheelchair(Furniture):
         back_dims = [seat_width, 0.05, 0.5]
         back_pos = [0, -seat_depth / 2, seat_height]
         parts.append(_create_box_vertices_faces(back_dims, back_pos))
-        
+
         # Armrests
         arm_dims = [0.05, seat_depth, 0.2]
         left_arm_pos = [-seat_width / 2, 0, seat_height]
@@ -1801,7 +1800,7 @@ class Wheelchair(Furniture):
         left_wheel_verts = np.dot(
             wheel_verts, rot_mat.T) + np.array([-seat_width / 2 - wheel_thickness, 0, wheel_radius])
         parts.append((left_wheel_verts, wheel_faces))
-        
+
         right_wheel_verts = np.dot(
             wheel_verts, rot_mat.T) + np.array([seat_width / 2, 0, wheel_radius])
         parts.append((right_wheel_verts, wheel_faces))
@@ -1937,7 +1936,7 @@ class OperatingRoomLight(Furniture):
     Represents an operating room light fixture.
     Position is where it attaches to the ceiling.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="metal"):
+    def __init__(self, name, position, rotation_z=0, material_name="glass"):
         parts = []
         # Arm
         arm_verts, arm_faces = _create_cylinder_vertices_faces(

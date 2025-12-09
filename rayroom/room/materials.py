@@ -46,6 +46,7 @@ def get_material(name):
     materials = {
         "concrete": Material("Concrete", absorption=0.05, transmission=0.0, scattering=0.0),
         "brick": Material("Brick", absorption=0.03, transmission=0.0, scattering=0.0),
+        "thick_carpet": Material("Thick Carpet", absorption=0.85, transmission=0.0, scattering=0.2),
         "carpet": Material("Carpet", absorption=0.7, transmission=0.0, scattering=0.3),
         "glass": Material("Glass", absorption=0.03, transmission=0.1, scattering=0.0),
         "heavy_curtain": Material("Heavy Curtain", absorption=0.6, transmission=0.2, scattering=0.5),
@@ -73,5 +74,6 @@ def get_material(name):
         "abs_plastic": Material("ABS Plastic", absorption=0.06, transmission=0.0, scattering=0.1),
         "foam_cushion": Material("Foam Cushion", absorption=0.8, transmission=0.0, scattering=0.6),
         "laminate": Material("Laminate", absorption=0.04, transmission=0.0, scattering=0.05),
+        "ceramic": Material("Ceramic", absorption=0.02, transmission=0.0, scattering=0.05),
     }
     return materials.get(name, Material("Default", 0.1, 0.0, 0.0))

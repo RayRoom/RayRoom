@@ -22,8 +22,8 @@ def main(mic_type='mono', output_dir='outputs', effects=None,
          save_rir_flag=False, save_audio_flag=True, save_acoustics_flag=True,
          save_psychoacoustics_flag=False, save_mesh_flag=True):
     # 1. Define Room
-    room, sources, mic = create_huge_room(mic_type)
-    # room, sources, mic = create_demo_room(mic_type)
+    # room, sources, mic = create_huge_room(mic_type)
+    room, sources, mic = create_demo_room(mic_type)
     src1 = sources["src1"]
     src2 = sources["src2"]
     src_bg = sources["src_bg"]

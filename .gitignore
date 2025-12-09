@@ -9,6 +9,7 @@ __pycache__/
 venv/
 **/.DS_Store
 .DS_Store
+docs/_build/
 
 
 # Allow wav files from docs/_static
