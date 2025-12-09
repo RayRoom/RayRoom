@@ -73,8 +73,6 @@ def create_demo_room(mic_type='mono'):
     room.add_receiver(mic)
 
     # 4. Add Furniture
-    # Mic at (2, 1)
-    # Person at (1.2, 1)
     person_1 = Person("Person 1", [0.5, 1.5, 0], rotation_z=90,
                       height=1.7, width=0.5, depth=0.3, material_name="human")
     room.add_furniture(person_1)
@@ -93,11 +91,8 @@ def create_demo_room(mic_type='mono'):
     room.add_furniture(coffee_table)
 
     # 5. Define Sources
-    # Speaker 1 at one end
-    src1 = Source("Speaker 1", [0.5, 1.5, 1.5], power=1.0, orientation=[1, 0, 0], directivity="cardioid")
-    # Speaker 2 at the other end
-    src2 = Source("Speaker 2", [3.5, 1.5, 1.5], power=1.0, orientation=[-1, 0, 0], directivity="cardioid")
-    # Background noise near ceiling
+    src1 = Source("Speaker 1", [0.7, 1.5, 1.5], power=1.0, orientation=[1, 0, 0], directivity="cardioid")
+    src2 = Source("Speaker 2", [3.3, 1.5, 1.5], power=1.0, orientation=[-1, 0, 0], directivity="cardioid")
     src_bg = Source("Background Noise", [0.1, 0.1, 2.4], power=0.5)
 
     room.add_source(src1)
