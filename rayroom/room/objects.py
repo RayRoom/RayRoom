@@ -494,6 +494,36 @@ def _create_torus_vertices_faces(major_radius, minor_radius, major_resolution=24
     return np.array(verts), faces
 
 
+def _create_sphere_vertices_faces(radius, lat_res=16, lon_res=16, center=(0, 0, 0)):
+    """
+    Creates vertices and faces for a sphere with inward-facing normals.
+    """
+    verts = []
+    # Generate vertices
+    for i in range(lat_res + 1):
+        lat_angle = np.pi * i / lat_res
+        for j in range(lon_res + 1):
+            lon_angle = 2 * np.pi * j / lon_res
+            x = radius * np.sin(lat_angle) * np.cos(lon_angle)
+            y = radius * np.sin(lat_angle) * np.sin(lon_angle)
+            z = radius * np.cos(lat_angle)
+            verts.append([x, y, z])
+
+    faces = []
+    # Generate faces
+    for i in range(lat_res):
+        for j in range(lon_res):
+            p1 = i * (lon_res + 1) + j
+            p2 = p1 + 1
+            p3 = (i + 1) * (lon_res + 1) + j
+            p4 = p3 + 1
+            # For inward normals, reverse winding order
+            faces.append([p1, p3, p4, p2])
+
+    verts = np.array(verts) + np.array(center)
+    return np.array(verts), faces
+
+
 class Chair(Furniture):
     """
     Represents a simple chair made of a seat, a back, and four legs.
@@ -932,10 +962,52 @@ class Door(Furniture):
     Represents a standard door as a thin box.
     The object's position is the center of its bottom face.
     """
-    def __init__(self, name, position, rotation_z=0, width=0.9, height=2.0, thickness=0.05, material_name="wood"):
-        dims = [width, thickness, height]
-        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
-        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+    def __init__(self, name, position, rotation_z=0, width=0.9, height=2.0,
+                 thickness=0.05, material_name="wood", handle=True, handle_side='negative'):
+        # Create door geometry
+        door_dims = [width, thickness, height]
+        door_verts, door_faces = _create_box_vertices_faces(door_dims, center_bottom_pos=[0, 0, 0])
+        parts = [(door_verts, door_faces)]
+
+        if handle:
+            # Handle parameters
+            handle_height = 1.0
+            handle_x_offset = width / 2 - 0.1
+            knob_radius = 0.03
+            shaft_radius = 0.01
+            shaft_length = 0.05
+
+            if handle_side == 'positive':
+                y_dir = 1
+            else:  # negative
+                y_dir = -1
+
+            # Handle Shaft (cylinder)
+            shaft_pos_y = y_dir * (thickness / 2)
+            shaft_verts, shaft_faces = _create_cylinder_vertices_faces(
+                shaft_radius, shaft_length, resolution=6, center_bottom_pos=[0, 0, 0]
+            )
+            # rotate around X to point along Y
+            angle = np.deg2rad(-90 * y_dir)
+            rotation_matrix = np.array([
+                [1, 0, 0],
+                [0, np.cos(angle), -np.sin(angle)],
+                [0, np.sin(angle), np.cos(angle)]
+            ])
+            shaft_verts = np.dot(shaft_verts, rotation_matrix.T)
+            shaft_verts += np.array([handle_x_offset, shaft_pos_y, handle_height])
+            parts.append((shaft_verts, shaft_faces))
+
+            # Handle Knob (sphere)
+            knob_pos_y = y_dir * (thickness / 2 + shaft_length)
+            knob_center = [handle_x_offset, knob_pos_y, handle_height]
+            knob_verts, knob_faces = _create_sphere_vertices_faces(
+                knob_radius, lat_res=6, lon_res=6, center=knob_center
+            )
+            parts.append((knob_verts, knob_faces))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
 class Smartphone(Furniture):

@@ -8,13 +8,13 @@ from rayroom import (
 from rayroom.analytics.performance import PerformanceMonitor
 from rayroom.effects import presets
 from demo_utils import (
-    create_demo_room,
     generate_layouts,
     save_room_mesh,
     process_effects_and_save,
-    DEFAULT_SAMPLING_RATE,
     save_performance_metrics,
 )
+from rayroom.room.database import DemoRoom
+from rayroom.core.constants import DEFAULT_SAMPLING_RATE
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -26,7 +26,7 @@ def main(mic_type='mono', output_dir='outputs', effects=None,
     Main function to run the hybrid simulation.
     """
     # 1. Define Small Room (Same as small room example)
-    room, sources, mic = create_demo_room(mic_type)
+    room, sources, mic = DemoRoom(mic_type=mic_type).create_room()
     src1 = sources["src1"]
     src2 = sources["src2"]
     src_bg = sources["src_bg"]

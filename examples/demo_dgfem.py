@@ -5,10 +5,8 @@ import sys
 import numpy as np
 import soundfile as sf
 from rayroom.engines.dgfem.dgfem import DGFEMSolver, DGFEMConfig
-from demo_utils import (
-    create_demo_room,
-    generate_layouts,
-)
+from rayroom.room.database import DemoRoom
+from demo_utils import generate_layouts
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -24,7 +22,7 @@ def main(mic_type='mono', output_dir='outputs'):
 
     # 1. Create a room from demo_utils
     # We use a lower sampling rate for DGFEM for performance reasons in this demo.
-    room, _, mic = create_demo_room(mic_type=mic_type)
+    room, _, mic = DemoRoom(mic_type=mic_type).create_room()
     room.fs = 16000
 
     # 2. Create output directory if it doesn't exist
