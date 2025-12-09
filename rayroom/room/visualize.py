@@ -624,17 +624,17 @@ def save_mesh_viewer(room, obj_filename, html_filename):
 
     objects_data = []
     for w in room.walls:
-        objects_data.append({"name": w.name, "description": w.material.name})
+        objects_data.append({"name": w.name, "description": w.material.name, "type": "wall"})
     for f in room.furniture:
-        objects_data.append({"name": f.name, "description": f.material.name})
+        objects_data.append({"name": f.name, "description": f.material.name, "type": "furniture"})
     for r in room.receivers:
         desc = "Ambisonic Receiver" if isinstance(r, AmbisonicReceiver) else "Mono Receiver"
-        objects_data.append({"name": r.name, "description": desc})
+        objects_data.append({"name": r.name, "description": desc, "type": "receiver"})
     for s in room.sources:
         desc = "Source"
         if s.directivity != "omnidirectional":
             desc += f" ({s.directivity})"
-        objects_data.append({"name": s.name, "description": desc})
+        objects_data.append({"name": s.name, "description": desc, "type": "source"})
     objects_data_json = json.dumps(objects_data)
 
     receivers_data = []

@@ -68,6 +68,10 @@
             <input type="checkbox" id="verticesToggle">
             <label for="verticesToggle">Show Vertices</label>
         </div>
+        <div class="control">
+            <input type="checkbox" id="furnitureToggle" checked>
+            <label for="furnitureToggle">Show Furniture</label>
+        </div>
         <ul id="objectList"></ul>
     </div>
 
@@ -284,6 +288,7 @@
         const transparencyToggle = document.getElementById('transparencyToggle');
         const edgesToggle = document.getElementById('edgesToggle');
         const verticesToggle = document.getElementById('verticesToggle');
+        const furnitureToggle = document.getElementById('furnitureToggle');
         
         function setTransparency(isTransparent) {
             for (const name in objectMap) {
@@ -327,6 +332,22 @@
             });
         }
 
+        function setFurnitureVisibility(visible) {
+            objectsData.forEach(objData => {
+                if (objData.type === 'furniture') {
+                    const objectToToggle = objectMap[objData.name];
+                    if (objectToToggle) {
+                        objectToToggle.visible = visible;
+                        // Also update the individual checkbox for this item
+                        const checkbox = document.getElementById(`check-${objData.name}`);
+                        if (checkbox) {
+                            checkbox.checked = visible;
+                        }
+                    }
+                }
+            });
+        }
+
         transparencyToggle.addEventListener('change', (event) => {
             setTransparency(event.target.checked);
         });
@@ -338,11 +359,16 @@
         verticesToggle.addEventListener('change', (event) => {
             setVerticesVisibility(event.target.checked);
         });
+
+        furnitureToggle.addEventListener('change', (event) => {
+            setFurnitureVisibility(event.target.checked);
+        });
         
         // Set initial state from checkbox
         setTransparency(transparencyToggle.checked);
         setEdgesVisibility(edgesToggle.checked);
         setVerticesVisibility(verticesToggle.checked);
+        setFurnitureVisibility(furnitureToggle.checked);
         
         function animate() {
             requestAnimationFrame(animate);
