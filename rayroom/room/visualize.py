@@ -9,6 +9,7 @@ from ..analytics.acoustics import (
 )
 import os
 import json
+from ..room.objects import AmbisonicReceiver
 
 
 def plot_room(room, filename=None, show=True):
@@ -620,8 +621,21 @@ def save_mesh_viewer(room, obj_filename, html_filename):
     # Escape backticks for JavaScript template literal
     obj_content_js = obj_content.replace('`', '\\`')
 
-    object_names = [w.name for w in room.walls] + [f.name for f in room.furniture]
+    object_names = [w.name for w in room.walls] + [f.name for f in room.furniture] + [r.name for r in room.receivers]
     object_names_json = json.dumps(object_names)
+
+    receivers_data = []
+    for r in room.receivers:
+        data = {"name": r.name, "position": r.position.tolist(), "radius": r.radius}
+        if isinstance(r, AmbisonicReceiver):
+            data["type"] = "ambisonic"
+            data["x_axis"] = r.x_axis.tolist()
+            data["y_axis"] = r.y_axis.tolist()
+            data["z_axis"] = r.z_axis.tolist()
+        else:
+            data["type"] = "mono"
+        receivers_data.append(data)
+    receivers_json = json.dumps(receivers_data)
 
     html_template = f"""
 <!DOCTYPE html>
@@ -768,6 +782,65 @@ def save_mesh_viewer(room, obj_filename, html_filename):
             }});
         }});
 
+        // --- Add Receivers ---
+        const receiversData = JSON.parse(String.raw`{receivers_json}`);
+        receiversData.forEach(receiver => {{
+            const receiverGroup = new THREE.Group();
+            receiverGroup.name = receiver.name;
+
+            if (receiver.type === 'ambisonic') {{
+                const bodyRadius = receiver.radius;
+                const capsuleRadius = 0.02;
+                const capsuleDist = bodyRadius + 0.01;
+
+                // Main body
+                const bodyGeom = new THREE.SphereGeometry(bodyRadius, 16, 16);
+                const bodyMat = new THREE.MeshStandardMaterial({{ color: 0xadd8e6, roughness: 0.1, metalness: 0.1 }});
+                const bodySphere = new THREE.Mesh(bodyGeom, bodyMat);
+                receiverGroup.add(bodySphere);
+
+                // Capsules
+                const capsuleGeom = new THREE.SphereGeometry(capsuleRadius, 8, 8);
+                const matX = new THREE.MeshStandardMaterial({{ color: 0xff0000 }}); // Red for X
+                const matY = new THREE.MeshStandardMaterial({{ color: 0x00ff00 }}); // Green for Y
+                const matZ = new THREE.MeshStandardMaterial({{ color: 0x0000ff }}); // Blue for Z
+
+                const x_axis = new THREE.Vector3().fromArray(receiver.x_axis);
+                const y_axis = new THREE.Vector3().fromArray(receiver.y_axis);
+                const z_axis = new THREE.Vector3().fromArray(receiver.z_axis);
+
+                const axes = [{{ axis: x_axis, mat: matX }}, {{ axis: y_axis, mat: matY }}, {{ axis: z_axis, mat: matZ }}];
+                axes.forEach(item => {{
+                    const pos_cap = new THREE.Mesh(capsuleGeom, item.mat);
+                    pos_cap.position.copy(item.axis).multiplyScalar(capsuleDist);
+                    receiverGroup.add(pos_cap);
+                    
+                    const neg_cap = new THREE.Mesh(capsuleGeom, item.mat);
+                    neg_cap.position.copy(item.axis).multiplyScalar(-capsuleDist);
+                    receiverGroup.add(neg_cap);
+                }});
+
+            }} else {{ // Mono
+                const monoRadius = 0.05; // Use a smaller, fixed radius for mono mics
+                const geometry = new THREE.SphereGeometry(monoRadius, 16, 16);
+                const material = new THREE.MeshStandardMaterial({{ color: 0xadd8e6, roughness: 0.1, metalness: 0.1 }});
+                const sphere = new THREE.Mesh(geometry, material);
+                receiverGroup.add(sphere);
+            }}
+            
+            receiverGroup.position.set(receiver.position[0], receiver.position[1], receiver.position[2]);
+            receiverGroup.position.sub(center); // Adjust position relative to centered room
+            
+            receiverGroup.traverse(node => {{
+                if (node.isMesh) {{
+                    node.userData.originalMaterial = node.material;
+                }}
+            }});
+            
+            scene.add(receiverGroup);
+            objectMap[receiver.name] = receiverGroup;
+        }});
+
         const objectNames = JSON.parse(String.raw`{object_names_json}`);
         const objectList = document.getElementById('objectList');
 
@@ -809,7 +882,9 @@ def save_mesh_viewer(room, obj_filename, html_filename):
                                 const newMaterial = node.material.clone();
                                 newMaterial.transparent = true;
                                 const lowerName = name.toLowerCase();
-                                if (lowerName.includes('wall') || lowerName.includes('ceiling') || lowerName.includes('floor') || lowerName.includes('window')) {{
+                                if (lowerName.includes('mic')) {{
+                                    newMaterial.opacity = 0.6;
+                                }} else if (lowerName.includes('wall') || lowerName.includes('ceiling') || lowerName.includes('floor') || lowerName.includes('window')) {{
                                     newMaterial.opacity = 0.2;
                                 }} else {{
                                     newMaterial.opacity = 0.5;
