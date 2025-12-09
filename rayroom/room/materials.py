@@ -44,19 +44,34 @@ def get_material(name):
     """
     # Simplified values, ideally these would be frequency dependent arrays
     materials = {
-        "concrete": Material("Concrete", absorption=0.05, transmission=0.0),
-        "brick": Material("Brick", absorption=0.03, transmission=0.0),
+        "concrete": Material("Concrete", absorption=0.05, transmission=0.0, scattering=0.0),
+        "brick": Material("Brick", absorption=0.03, transmission=0.0, scattering=0.0),
         "carpet": Material("Carpet", absorption=0.7, transmission=0.0, scattering=0.3),
-        "glass": Material("Glass", absorption=0.03, transmission=0.1),  # Partial transmission
-        "heavy_curtain": Material("Heavy Curtain", absorption=0.6, transmission=0.2),
-        "wood": Material("Wood", absorption=0.15, transmission=0.01),
-        "plaster": Material("Plaster", absorption=0.1, transmission=0.0),
-        "air": Material("Air", absorption=0.0, transmission=1.0),  # Fully transparent
-        "transparent_wall": Material("TransparentWall", absorption=0.1, transmission=0.8),
+        "glass": Material("Glass", absorption=0.03, transmission=0.1, scattering=0.0),
+        "heavy_curtain": Material("Heavy Curtain", absorption=0.6, transmission=0.2, scattering=0.5),
+        "wood": Material("Wood", absorption=0.15, transmission=0.01, scattering=0.1),
+        "plaster": Material("Plaster", absorption=0.1, transmission=0.0, scattering=0.05),
+        "air": Material("Air", absorption=0.0, transmission=1.0, scattering=0.0),
+        "transparent_wall": Material("TransparentWall", absorption=0.1, transmission=0.8, scattering=0.0),
         "human": Material("Human", absorption=0.5, transmission=0.0, scattering=0.5),
         "asphalt": Material("Asphalt", absorption=0.1, transmission=0.0, scattering=0.1),
         "grass": Material("Grass", absorption=0.5, transmission=0.0, scattering=0.6),
         "soil": Material("Soil", absorption=0.3, transmission=0.0, scattering=0.7),
         "metal": Material("Metal", absorption=0.05, transmission=0.0, scattering=0.1),
+        "fabric": Material("Fabric", absorption=0.4, transmission=0.05, scattering=0.4),
+        "leather": Material("Leather", absorption=0.25, transmission=0.0, scattering=0.2),
+        "tempered_glass": Material("Tempered Glass", absorption=0.02, transmission=0.01, scattering=0.05),
+        "marble": Material("Marble", absorption=0.01, transmission=0.0, scattering=0.1),
+        "acoustic_foam": Material("Acoustic Foam", absorption=0.95, transmission=0.0, scattering=0.7),
+        "drywall": Material("Drywall", absorption=0.08, transmission=0.0, scattering=0.1),
+        "water": Material("Water Surface", absorption=0.02, transmission=0.0, scattering=0.1),
+        "plywood": Material("Plywood", absorption=0.2, transmission=0.0, scattering=0.15),
+        "linoleum": Material("Linoleum", absorption=0.03, transmission=0.0, scattering=0.05),
+        "ceiling_tile": Material("Ceiling Tile", absorption=0.8, transmission=0.0, scattering=0.6),
+        "stucco": Material("Stucco", absorption=0.15, transmission=0.0, scattering=0.5),
+        "plastic": Material("Plastic", absorption=0.05, transmission=0.0, scattering=0.1),
+        "abs_plastic": Material("ABS Plastic", absorption=0.06, transmission=0.0, scattering=0.1),
+        "foam_cushion": Material("Foam Cushion", absorption=0.8, transmission=0.0, scattering=0.6),
+        "laminate": Material("Laminate", absorption=0.04, transmission=0.0, scattering=0.05),
     }
-    return materials.get(name, Material("Default", 0.1, 0.0))
+    return materials.get(name, Material("Default", 0.1, 0.0, 0.0))

@@ -320,6 +320,7 @@ def _create_box_vertices_faces(dimensions, center_bottom_pos=(0, 0, 0)):
         [2, 6, 7, 3],  # Back
         [3, 7, 4, 0]   # Left
     ]
+
     return np.array(verts), faces
 
 
@@ -573,4 +574,105 @@ class FloorstandingSpeaker(Furniture):
     def __init__(self, name, position, rotation_z=0, material_name="wood"):
         dims = [0.3, 0.4, 1.0]  # width, depth, height
         verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Window(Furniture):
+    """
+    Represents a single rectangular window as a thin box.
+    The object's position is its geometric center.
+    """
+    def __init__(self, name, position, rotation_z=0, width=1.0, height=1.5, thickness=0.05, material_name="glass"):
+        dims = [width, thickness, height]
+        # Center the box on its position
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, -height / 2])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class DoubleRectangleWindow(Furniture):
+    """
+    Represents a double rectangular window as two thin boxes side-by-side.
+    The object's position is its geometric center.
+    """
+    def __init__(self, name, position, rotation_z=0, width=1.8, height=1.5, thickness=0.05,
+                 frame_width=0.1, material_name="glass"):
+        parts = []
+        pane_width = (width - frame_width) / 2
+
+        # Left pane
+        left_pane_dims = [pane_width, thickness, height]
+        left_pane_pos = [-width/2 + pane_width/2, 0, -height/2]
+        parts.append(_create_box_vertices_faces(left_pane_dims, left_pane_pos))
+
+        # Right pane
+        right_pane_dims = [pane_width, thickness, height]
+        right_pane_pos = [width/2 - pane_width/2, 0, -height/2]
+        parts.append(_create_box_vertices_faces(right_pane_dims, right_pane_pos))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class SquareWindow(Window):
+    """
+    Represents a square window as a thin box.
+    The object's position is its geometric center.
+    """
+    def __init__(self, name, position, rotation_z=0, size=1.0, thickness=0.05, material_name="glass"):
+        super().__init__(name, position, rotation_z, width=size, height=size,
+                         thickness=thickness, material_name=material_name)
+
+
+class Painting(Furniture):
+    """
+    Represents a painting as a thin box.
+    The object's position is its geometric center.
+    """
+    def __init__(self, name, position, rotation_z=0, width=0.8, height=0.6, thickness=0.05, material_name="fabric"):
+        dims = [width, thickness, height]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, -height / 2])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class FloatingTVShelf(Furniture):
+    """
+    Represents a floating TV shelf as a box.
+    The object's position is its geometric center.
+    """
+    def __init__(self, name, position, rotation_z=0, width=1.5, depth=0.4, height=0.2, material_name="wood"):
+        dims = [width, depth, height]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, -height / 2])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class WallShelf(Furniture):
+    """
+    Represents a wall shelf as a box.
+    The object's position is its geometric center.
+    """
+    def __init__(self, name, position, rotation_z=0, width=1.0, depth=0.3, height=0.05, material_name="wood"):
+        dims = [width, depth, height]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, -height / 2])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class KitchenCabinet(Furniture):
+    """
+    Represents a kitchen cabinet as a box.
+    The object's position is its geometric center.
+    """
+    def __init__(self, name, position, rotation_z=0, width=0.8, depth=0.4, height=0.9, material_name="wood"):
+        dims = [width, depth, height]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, -height / 2])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Clock(Furniture):
+    """
+    Represents a wall clock as a thin square box.
+    The object's position is its geometric center.
+    """
+    def __init__(self, name, position, rotation_z=0, size=0.3, thickness=0.05, material_name="plastic"):
+        dims = [size, thickness, size]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, -size / 2])
         super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
