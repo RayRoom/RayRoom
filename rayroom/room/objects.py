@@ -726,22 +726,88 @@ class SquareCarpet(Furniture):
 
 class Subwoofer(Furniture):
     """
-    Represents a subwoofer as a cube.
+    Represents a subwoofer as a cube with a large driver cone.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="wood"):
-        dims = [0.4, 0.4, 0.4]  # width, depth, height
-        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
-        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+    def __init__(self, name, position, rotation_z=0, material_name="wood", resolution=16):
+        parts = []
+        width, depth, height = 0.4, 0.4, 0.4
+
+        # Main cabinet
+        cabinet_dims = [width, depth, height]
+        parts.append(_create_box_vertices_faces(cabinet_dims, center_bottom_pos=[0, 0, 0]))
+
+        # Driver (cylinder) on the front face (positive y)
+        driver_thickness = 0.02
+        front_y = depth / 2
+        driver_radius = 0.15
+        driver_z = height / 2
+
+        driver_verts, driver_faces = _create_cylinder_vertices_faces(
+            driver_radius, driver_thickness, resolution, [0, 0, -driver_thickness/2]
+        )
+
+        # Rotate to face forward
+        angle = np.deg2rad(90)
+        rotation_matrix = np.array([[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]])
+        driver_verts = np.dot(driver_verts, rotation_matrix.T)
+        driver_verts += np.array([0, front_y, driver_z])
+        parts.append((driver_verts, driver_faces))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
 class FloorstandingSpeaker(Furniture):
     """
-    Represents a floorstanding speaker as a tall box.
+    Represents a floorstanding speaker as a tall box with speaker drivers.
     """
-    def __init__(self, name, position, rotation_z=0, material_name="wood"):
-        dims = [0.3, 0.4, 1.0]  # width, depth, height
-        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
-        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+    def __init__(self, name, position, rotation_z=0, material_name="wood", resolution=12):
+        parts = []
+        width, depth, height = 0.3, 0.4, 1.0
+
+        # Main cabinet
+        cabinet_dims = [width, depth, height]
+        parts.append(_create_box_vertices_faces(cabinet_dims, center_bottom_pos=[0, 0, 0]))
+
+        # Drivers (cylinders) on the front face (positive y)
+        driver_thickness = 0.02
+        front_y = depth / 2
+
+        # Define a rotation matrix to make drivers face forward (+y)
+        angle = np.deg2rad(90)
+        rotation_matrix = np.array([[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]])
+
+        # Tweeter
+        tweeter_radius = 0.03
+        tweeter_z = height * 0.85
+        tweeter_verts, tweeter_faces = _create_cylinder_vertices_faces(
+            tweeter_radius, driver_thickness, resolution, [0, 0, -driver_thickness / 2]
+        )
+        tweeter_verts = np.dot(tweeter_verts, rotation_matrix.T)
+        tweeter_verts += np.array([0, front_y, tweeter_z])
+        parts.append((tweeter_verts, tweeter_faces))
+
+        # Mid-range driver 1
+        mid_radius = 0.06
+        mid1_z = height * 0.65
+        mid1_verts, mid1_faces = _create_cylinder_vertices_faces(
+            mid_radius, driver_thickness, resolution, [0, 0, -driver_thickness / 2]
+        )
+        mid1_verts = np.dot(mid1_verts, rotation_matrix.T)
+        mid1_verts += np.array([0, front_y, mid1_z])
+        parts.append((mid1_verts, mid1_faces))
+
+        # Mid-range driver 2
+        mid2_z = height * 0.45
+        mid2_verts, mid2_faces = _create_cylinder_vertices_faces(
+            mid_radius, driver_thickness, resolution, [0, 0, -driver_thickness / 2]
+        )
+        mid2_verts = np.dot(mid2_verts, rotation_matrix.T)
+        mid2_verts += np.array([0, front_y, mid2_z])
+        parts.append((mid2_verts, mid2_faces))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
 class Window(Furniture):

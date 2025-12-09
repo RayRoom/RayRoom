@@ -160,8 +160,8 @@ def create_huge_room(mic_type='mono'):
         "DiningTable": DiningTable("DiningTbl", [8, 6, 0]),
         "Chair": Chair("Chair1", [7.5, 5, 0]),
         "Desk": Desk("Desk1", [2, 10, 0], rotation_z=15),
-        "Subwoofer": Subwoofer("Sub1", [1, 1, 0]),
-        "FloorstandingSpeaker": FloorstandingSpeaker("SpeakerL", [1, 6, 0]),
+        "Subwoofer": Subwoofer("Sub1", [1, 1, 0], rotation_z=90),
+        "FloorstandingSpeaker": FloorstandingSpeaker("SpeakerL", [1, 6, 0], rotation_z=90),
         "TV": TV("TV1", [4, 1, 0.8], rotation_z=0),
         "FloatingTVShelf": FloatingTVShelf("TVShelf", [4, 1, 0.5]),
 
