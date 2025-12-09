@@ -10,6 +10,9 @@ from rayroom import (
     AmbisonicReceiver,
     get_material,
     Person,
+    ThreeSeatCouch,
+    CoffeeTable,
+    Chair,
 )
 from rayroom.analytics.acoustics import (
     calculate_clarity,
@@ -70,16 +73,24 @@ def create_demo_room(mic_type='mono'):
     room.add_receiver(mic)
 
     # 4. Add Furniture
-    # Add a Person (blocker) between source 1 and mic
-    # Source 1 will be at (0.5, 1)
     # Mic at (2, 1)
     # Person at (1.2, 1)
-    person = Person("Person", [1.2, 1, 0], height=1.7, width=0.5, depth=0.3, material_name="human")
-    room.add_furniture(person)
+    person_1 = Person("Person 1", [0.5, 1.5, 0], rotation_z=90,
+                      height=1.7, width=0.5, depth=0.3, material_name="human")
+    room.add_furniture(person_1)
 
-    # Add a Table
-    table = Person("Table", [3, 1, 0], height=0.8, width=0.8, depth=0.8, material_name="wood")
-    room.add_furniture(table)
+    person_2 = Person("Person 2", [3.5, 1.5, 0], rotation_z=-90,
+                      height=1.7, width=0.5, depth=0.3, material_name="human")
+    room.add_furniture(person_2)
+
+    chair = Chair("Chair", [0.5, 0.65, 0], rotation_z=-45, material_name="wood")
+    room.add_furniture(chair)
+
+    couch = ThreeSeatCouch("Couch", [2.9, 0.6, 0], rotation_z=5)
+    room.add_furniture(couch)
+
+    coffee_table = CoffeeTable("CoffeeTable", [2.5, 1.5, 0], rotation_z=5)
+    room.add_furniture(coffee_table)
 
     # 5. Define Sources
     # Speaker 1 at one end
@@ -87,7 +98,7 @@ def create_demo_room(mic_type='mono'):
     # Speaker 2 at the other end
     src2 = Source("Speaker 2", [3.5, 1.5, 1.5], power=1.0, orientation=[-1, 0, 0], directivity="cardioid")
     # Background noise near ceiling
-    src_bg = Source("Background Noise", [2, 0.5, 2.4], power=0.5)
+    src_bg = Source("Background Noise", [0.1, 0.1, 2.4], power=0.5)
 
     room.add_source(src1)
     room.add_source(src2)

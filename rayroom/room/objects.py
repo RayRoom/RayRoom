@@ -171,22 +171,40 @@ class Furniture(Object3D):
     Represents a complex 3D object (mesh) in the room, like a table or chair.
     """
 
-    def __init__(self, name, vertices, faces, material=None):
+    def __init__(self, name, position, vertices, faces, material=None, rotation_z=0):
         """
         Initialize Furniture.
 
         :param name: Name of the object.
         :type name: str
-        :param vertices: List of [x, y, z] coordinates for the mesh vertices.
+        :param position: [x, y, z] coordinates for the object's center.
+        :type position: list or np.ndarray
+        :param vertices: List of [x, y, z] coordinates for the mesh vertices, relative to the object's center.
         :type vertices: list
         :param faces: List of faces, where each face is a list of vertex indices.
         :type faces: list[list[int]]
         :param material: Material properties.
         :type material: rayroom.materials.Material, optional
+        :param rotation_z: Rotation in degrees around the Z-axis.
+        :type rotation_z: float, optional
         """
-        super().__init__(name, [0, 0, 0], material)  # Position is relative or origin
-        self.vertices = np.array(vertices)
-        self.faces = faces  # List of lists of indices
+        super().__init__(name, position, material)
+        vertices = np.array(vertices)
+
+        # Apply rotation around Z-axis if specified
+        if rotation_z != 0:
+            theta = np.deg2rad(rotation_z)
+            cos_theta, sin_theta = np.cos(theta), np.sin(theta)
+            rotation_matrix = np.array([
+                [cos_theta, -sin_theta, 0],
+                [sin_theta,  cos_theta, 0],
+                [0,          0,         1]
+            ])
+            vertices = np.dot(vertices, rotation_matrix.T)
+
+        # Translate vertices to the final world position
+        self.vertices = vertices + self.position
+        self.faces = faces
 
         # Precompute normals and plane equations for faces
         self.face_normals = []
@@ -209,10 +227,10 @@ class Furniture(Object3D):
 
 class Person(Furniture):
     """
-    Represents a person, approximated as a rectangular box.
+    Represents a person as a blocky, Minecraft-style character.
     """
 
-    def __init__(self, name, position, height=1.7, width=0.5, depth=0.3, material_name="human"):
+    def __init__(self, name, position, rotation_z=0, height=1.7, width=0.5, depth=0.3, material_name="human"):
         """
         Initialize a Person object.
 
@@ -220,34 +238,339 @@ class Person(Furniture):
         :type name: str
         :param position: [x, y, z] coordinates of the feet center.
         :type position: list or np.ndarray
+        :param rotation_z: Rotation in degrees around the Z-axis.
+        :type rotation_z: float, optional
         :param height: Height of the person in meters. Defaults to 1.7.
         :type height: float
         :param width: Width of the person (shoulder width) in meters. Defaults to 0.5.
         :type width: float
         :param depth: Depth of the person (chest depth) in meters. Defaults to 0.3.
         :type depth: float
-        :param material_name: Name of the material to use (looked up via get_material). Defaults to "human".
+        :param material_name: Name of the material to use. Defaults to "human".
         :type material_name: str
         """
-        # Create box vertices centered at position (x,y) standing on z=position[2] or centered z?
-        # Usually position is feet location.
-        x, y, z = position
-        w, d, h = width, depth, height
+        parts = []
 
-        # 8 corners
-        verts = [
-            [x-w/2, y-d/2, z],   [x+w/2, y-d/2, z],   [x+w/2, y+d/2, z],   [x-w/2, y+d/2, z],  # Bottom
-            [x-w/2, y-d/2, z+h], [x+w/2, y-d/2, z+h], [x+w/2, y+d/2, z+h], [x-w/2, y+d/2, z+h]  # Top
+        # Proportions (approximate)
+        head_h = height * 0.15
+        torso_h = height * 0.45
+        leg_h = height * 0.40
+
+        head_w = width * 0.5
+        torso_w = width
+        leg_w = width * 0.25
+
+        head_d = depth * 0.8
+        torso_d = depth
+        arm_d = depth * 0.8
+        leg_d = depth * 0.8
+
+        # Torso
+        torso_pos = [0, 0, leg_h]
+        parts.append(_create_box_vertices_faces([torso_w, torso_d, torso_h], torso_pos))
+
+        # Head
+        head_pos = [0, 0, leg_h + torso_h]
+        parts.append(_create_box_vertices_faces([head_w, head_d, head_h], head_pos))
+
+        # Legs
+        left_leg_pos = [-torso_w / 4, 0, 0]
+        right_leg_pos = [torso_w / 4, 0, 0]
+        parts.append(_create_box_vertices_faces([leg_w, leg_d, leg_h], left_leg_pos))
+        parts.append(_create_box_vertices_faces([leg_w, leg_d, leg_h], right_leg_pos))
+
+        # Arms
+        arm_h = torso_h * 0.9
+        arm_w = width * 0.2
+        left_arm_pos = [-torso_w / 2 - arm_w / 2, 0, leg_h]
+        right_arm_pos = [torso_w / 2 + arm_w / 2, 0, leg_h]
+        parts.append(_create_box_vertices_faces([arm_w, arm_d, arm_h], left_arm_pos))
+        parts.append(_create_box_vertices_faces([arm_w, arm_d, arm_h], right_arm_pos))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+def _create_box_vertices_faces(dimensions, center_bottom_pos=(0, 0, 0)):
+    """
+    Creates vertices and faces for a box.
+
+    :param dimensions: [width, depth, height]
+    :type dimensions: list or np.ndarray
+    :param center_bottom_pos: [x, y, z] of the center of the bottom face.
+    :type center_bottom_pos: list or np.ndarray
+    :return: Tuple of (vertices, faces)
+    :rtype: (np.ndarray, list)
+    """
+    x, y, z = center_bottom_pos
+    w, d, h = dimensions
+
+    verts = [
+        [x - w / 2, y - d / 2, z], [x + w / 2, y - d / 2, z],
+        [x + w / 2, y + d / 2, z], [x - w / 2, y + d / 2, z],  # Bottom
+        [x - w / 2, y - d / 2, z + h], [x + w / 2, y - d / 2, z + h],
+        [x + w / 2, y + d / 2, z + h], [x - w / 2, y + d / 2, z + h]  # Top
+    ]
+
+    faces = [
+        [0, 1, 2, 3],  # Bottom
+        [4, 7, 6, 5],  # Top
+        [0, 4, 5, 1],  # Front
+        [1, 5, 6, 2],  # Right
+        [2, 6, 7, 3],  # Back
+        [3, 7, 4, 0]   # Left
+    ]
+    return np.array(verts), faces
+
+
+def _create_composite_object(parts):
+    """
+    Combines multiple vertex/face lists into a single mesh.
+
+    :param parts: A list of tuples, where each tuple is (vertices, faces).
+    :type parts: list
+    :return: Tuple of (combined_vertices, combined_faces)
+    :rtype: (np.ndarray, list)
+    """
+    all_verts = []
+    all_faces = []
+    num_verts = 0
+
+    for verts, faces in parts:
+        all_verts.append(verts)
+        offset_faces = (np.array(faces) + num_verts).tolist()
+        all_faces.extend(offset_faces)
+        num_verts += len(verts)
+
+    if not all_verts:
+        return np.array([]), []
+
+    return np.vstack(all_verts), all_faces
+
+
+class Chair(Furniture):
+    """
+    Represents a simple chair made of a seat, a back, and four legs.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="wood"):
+        """
+        Initialize a Chair object.
+
+        :param name: Name of the chair.
+        :type name: str
+        :param position: [x, y, z] coordinates of the center of the chair on the floor.
+        :type position: list or np.ndarray
+        :param rotation_z: Rotation in degrees around the Z-axis.
+        :type rotation_z: float, optional
+        :param material_name: Name of the material. Defaults to "wood".
+        :type material_name: str
+        """
+        parts = []
+
+        # Seat
+        seat_dims = [0.5, 0.5, 0.05]
+        seat_pos = [0, 0, 0.4]
+        parts.append(_create_box_vertices_faces(seat_dims, seat_pos))
+
+        # Back
+        back_dims = [0.5, 0.05, 0.5]
+        back_pos = [0, -0.225, 0.425]
+        parts.append(_create_box_vertices_faces(back_dims, back_pos))
+
+        # Legs
+        leg_dims = [0.04, 0.04, 0.4]
+        leg_positions = [
+            [-0.23, -0.23, 0],
+            [0.23, -0.23, 0],
+            [-0.23, 0.23, 0],
+            [0.23, 0.23, 0],
+        ]
+        for pos in leg_positions:
+            parts.append(_create_box_vertices_faces(leg_dims, pos))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class DiningTable(Furniture):
+    """
+    Represents a dining table with a tabletop and four legs.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="wood"):
+        parts = []
+
+        # Tabletop
+        top_dims = [1.5, 0.8, 0.05]
+        top_pos = [0, 0, 0.7]
+        parts.append(_create_box_vertices_faces(top_dims, top_pos))
+
+        # Legs
+        leg_dims = [0.05, 0.05, 0.7]
+        leg_positions = [
+            [-0.7, -0.35, 0],
+            [0.7, -0.35, 0],
+            [-0.7, 0.35, 0],
+            [0.7, 0.35, 0],
+        ]
+        for pos in leg_positions:
+            parts.append(_create_box_vertices_faces(leg_dims, pos))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class CoffeeTable(Furniture):
+    """
+    Represents a coffee table with a tabletop and four legs.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="wood", legs_to_remove=None):
+        """
+        Initialize a CoffeeTable object.
+
+        :param name: Name of the table.
+        :type name: str
+        :param position: [x, y, z] coordinates for the object's center.
+        :type position: list or np.ndarray
+        :param rotation_z: Rotation in degrees around the Z-axis.
+        :type rotation_z: float, optional
+        :param material_name: Name of the material. Defaults to "wood".
+        :type material_name: str
+        :param legs_to_remove: A list of leg indices (0-3) to remove. 0:FL, 1:FR, 2:BL, 3:BR
+        :type legs_to_remove: list, optional
+        """
+        parts = []
+
+        # Tabletop
+        top_dims = [1.0, 0.5, 0.04]
+        top_pos = [0, 0, 0.36]
+        parts.append(_create_box_vertices_faces(top_dims, top_pos))
+
+        # Legs
+        leg_dims = [0.04, 0.04, 0.36]
+        leg_positions = [
+            [-0.45, -0.22, 0],  # 0: front-left
+            [0.45, -0.22, 0],   # 1: front-right
+            [-0.45, 0.22, 0],   # 2: back-left
+            [0.45, 0.22, 0],    # 3: back-right
         ]
 
-        # 6 faces (quads)
-        faces = [
-            [0, 1, 2, 3],  # Bottom
-            [4, 7, 6, 5],  # Top
-            [0, 4, 5, 1],  # Front
-            [1, 5, 6, 2],  # Right
-            [2, 6, 7, 3],  # Back
-            [3, 7, 4, 0]  # Left
-        ]
+        if legs_to_remove is None:
+            legs_to_remove = []
 
-        super().__init__(name, verts, faces, get_material(material_name))
+        for i, pos in enumerate(leg_positions):
+            if i not in legs_to_remove:
+                parts.append(_create_box_vertices_faces(leg_dims, pos))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class TV(Furniture):
+    """
+    Represents a simple TV as a thin box.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="default"):
+        dims = [1.2, 0.05, 0.7]  # width, depth, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Desk(Furniture):
+    """
+    Represents a simple desk as a single box.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="wood"):
+        dims = [1.2, 0.6, 0.75]  # width, depth, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+def _create_couch_geometry(width, options=None):
+    """Helper function to create couch geometry."""
+    if options is None:
+        options = {}
+
+    parts = []
+    depth = options.get("depth", 0.9)
+    seat_height = options.get("seat_height", 0.4)
+    back_height = options.get("back_height", 0.4)
+    arm_height = options.get("arm_height", 0.2)
+    arm_width = options.get("arm_width", 0.2)
+
+    # Base
+    base_dims = [width, depth, seat_height]
+    parts.append(_create_box_vertices_faces(base_dims, [0, 0, 0]))
+
+    # Backrest
+    if not options.get("no_backrest", False):
+        back_dims = [width, 0.2, back_height]
+        back_pos = [0, -depth / 2 + 0.1, seat_height]
+        parts.append(_create_box_vertices_faces(back_dims, back_pos))
+
+    # Armrests
+    if not options.get("no_armrests", False):
+        arm_dims = [arm_width, depth, arm_height]
+        left_arm_pos = [-width / 2 + arm_width / 2, 0, seat_height]
+        right_arm_pos = [width / 2 - arm_width / 2, 0, seat_height]
+        parts.append(_create_box_vertices_faces(arm_dims, left_arm_pos))
+        parts.append(_create_box_vertices_faces(arm_dims, right_arm_pos))
+
+    vertices, faces = _create_composite_object(parts)
+    return vertices, faces
+
+
+class ThreeSeatCouch(Furniture):
+    """
+    Represents a three-seat couch with base, backrest, and armrests.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="fabric", options=None):
+        vertices, faces = _create_couch_geometry(2.0, options)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class TwoSeatCouch(Furniture):
+    """
+    Represents a two-seat couch with base, backrest, and armrests.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="fabric", options=None):
+        vertices, faces = _create_couch_geometry(1.5, options)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class OneSeatCouch(Furniture):
+    """
+    Represents a one-seat couch (armchair) with base, backrest, and armrests.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="fabric", options=None):
+        vertices, faces = _create_couch_geometry(1.0, options)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class SquareCarpet(Furniture):
+    """
+    Represents a square carpet as a flat box.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="carpet"):
+        dims = [2.0, 2.0, 0.02]  # width, depth, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Subwoofer(Furniture):
+    """
+    Represents a subwoofer as a cube.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="wood"):
+        dims = [0.4, 0.4, 0.4]  # width, depth, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class FloorstandingSpeaker(Furniture):
+    """
+    Represents a floorstanding speaker as a tall box.
+    """
+    def __init__(self, name, position, rotation_z=0, material_name="wood"):
+        dims = [0.3, 0.4, 1.0]  # width, depth, height
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
