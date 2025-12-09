@@ -9,7 +9,7 @@ from ..analytics.acoustics import (
 )
 import os
 import json
-from ..room.objects import AmbisonicReceiver
+from ..room.objects import AmbisonicReceiver, Source
 
 
 def plot_room(room, filename=None, show=True):
@@ -621,7 +621,7 @@ def save_mesh_viewer(room, obj_filename, html_filename):
     # Escape backticks for JavaScript template literal
     obj_content_js = obj_content.replace('`', '\\`')
 
-    object_names = [w.name for w in room.walls] + [f.name for f in room.furniture] + [r.name for r in room.receivers]
+    object_names = [w.name for w in room.walls] + [f.name for f in room.furniture] + [r.name for r in room.receivers] + [s.name for s in room.sources]
     object_names_json = json.dumps(object_names)
 
     receivers_data = []
@@ -636,6 +636,17 @@ def save_mesh_viewer(room, obj_filename, html_filename):
             data["type"] = "mono"
         receivers_data.append(data)
     receivers_json = json.dumps(receivers_data)
+
+    sources_data = []
+    for s in room.sources:
+        data = {
+            "name": s.name,
+            "position": s.position.tolist(),
+            "orientation": s.orientation.tolist(),
+            "directivity": s.directivity,
+        }
+        sources_data.append(data)
+    sources_json = json.dumps(sources_data)
 
     html_template = f"""
 <!DOCTYPE html>
@@ -841,6 +852,37 @@ def save_mesh_viewer(room, obj_filename, html_filename):
             objectMap[receiver.name] = receiverGroup;
         }});
 
+        // --- Add Sources ---
+        const sourcesData = JSON.parse(String.raw`{sources_json}`);
+        sourcesData.forEach(source => {{
+            const sourceGroup = new THREE.Group();
+            sourceGroup.name = source.name;
+
+            const sourceRadius = 0.06;
+            const geometry = new THREE.SphereGeometry(sourceRadius, 16, 16);
+            const material = new THREE.MeshStandardMaterial({{ color: 0xff0000, roughness: 0.1, metalness: 0.1 }});
+            const sphere = new THREE.Mesh(geometry, material);
+            sourceGroup.add(sphere);
+
+            if (source.directivity !== 'omnidirectional') {{
+                const dir = new THREE.Vector3().fromArray(source.orientation);
+                const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(0, 0, 0), 0.3, 0xff0000, 0.1, 0.05);
+                sourceGroup.add(arrow);
+            }}
+
+            sourceGroup.position.set(source.position[0], source.position[1], source.position[2]);
+            sourceGroup.position.sub(center); // Adjust position relative to centered room
+            
+            sourceGroup.traverse(node => {{
+                if (node.isMesh) {{
+                    node.userData.originalMaterial = node.material;
+                }}
+            }});
+            
+            scene.add(sourceGroup);
+            objectMap[source.name] = sourceGroup;
+        }});
+
         const objectNames = JSON.parse(String.raw`{object_names_json}`);
         const objectList = document.getElementById('objectList');
 
@@ -886,6 +928,8 @@ def save_mesh_viewer(room, obj_filename, html_filename):
                                     newMaterial.opacity = 0.6;
                                 }} else if (lowerName.includes('wall') || lowerName.includes('ceiling') || lowerName.includes('floor') || lowerName.includes('window')) {{
                                     newMaterial.opacity = 0.2;
+                                }} else if (lowerName.includes('source') || lowerName.includes('speaker')) {{
+                                    newMaterial.opacity = 0.6;
                                 }} else {{
                                     newMaterial.opacity = 0.5;
                                 }}
