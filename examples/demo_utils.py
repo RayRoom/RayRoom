@@ -17,6 +17,9 @@ from rayroom.analytics.acoustics import (
     calculate_edt,
     calculate_rt60,
     schroeder_integration,
+    calculate_loudness,
+    calculate_sharpness,
+    calculate_roughness,
 )
 from rayroom.room.visualize import (
     plot_reverberation_time,
@@ -116,11 +119,38 @@ def save_audio_files(mixed_audio, mic_type, fs, output_dir, filename_prefix):
         print("Error: No audio output generated.")
 
 
+def save_rir(rir, mic_type, fs, output_dir, filename_prefix):
+    """Saves the RIR to a WAV file."""
+    if rir is not None:
+        output_filename = f"{filename_prefix}_{mic_type}_rir.wav"
+        output_path = os.path.join(output_dir, output_filename)
+        # Normalize RIR
+        rir = rir / np.max(np.abs(rir))
+
+        if mic_type == 'ambisonic':
+            wavfile.write(output_path, fs, rir.astype(np.float32))
+        else:
+            wavfile.write(output_path, fs, (rir * 32767).astype(np.int16))
+        print(f"RIR saved to {output_path}")
+    else:
+        print("Error: No RIR generated.")
+
+
 def generate_layouts(room, output_dir, filename_prefix):
     """Generates and saves room layout visualizations."""
     print(f"Saving room layout visualization to {output_dir}...")
     room.plot(os.path.join(output_dir, f"{filename_prefix}_layout.png"), show=False)
     room.plot(os.path.join(output_dir, f"{filename_prefix}_layout_2d.png"), show=False, view='2d')
+
+
+def save_room_mesh(room, output_dir, filename_prefix):
+    """Saves the room geometry as an OBJ mesh file."""
+    print(f"Saving room mesh to {output_dir}...")
+    mesh_path = os.path.join(output_dir, f"{filename_prefix}_mesh.obj")
+    room.save_mesh(mesh_path)
+    # Also save the HTML viewer
+    viewer_path = os.path.join(output_dir, f"{filename_prefix}_mesh_viewer.html")
+    room.save_mesh_viewer(mesh_path, viewer_path)
 
 
 def compute_and_save_metrics(rir, mixed_audio, mic_name, mic_type, fs, output_dir, filename_prefix):
@@ -176,10 +206,52 @@ def compute_and_save_metrics(rir, mixed_audio, mic_name, mic_type, fs, output_di
     )
 
 
-def process_effects_and_save(mixed_audio, rir, mic_name, mic_type, fs, output_dir, simulation_name, effects=None):
+def compute_and_save_psychoacoustic_metrics(mixed_audio, fs, output_dir, filename_prefix, mic_name):
+    """Computes, prints, and saves psychoacoustic metrics."""
+    if mixed_audio is None:
+        return
+
+    print("\nPsychoacoustic Metrics:")
+
+    # Use mono signal for psychoacoustic metrics
+    audio_for_metrics = mixed_audio[:, 0] if mixed_audio.ndim > 1 else mixed_audio
+
+    # Loudness
+    loudness, _ = calculate_loudness(audio_for_metrics, fs)
+    print(f"  - Loudness: {loudness:.2f} sones")
+
+    # Sharpness
+    sharpness = calculate_sharpness(audio_for_metrics, fs)
+    print(f"  - Sharpness: {sharpness:.2f} acum")
+
+    # Roughness
+    roughness_array, _ = calculate_roughness(audio_for_metrics, fs)
+    # The new mosqito version may return roughness as an array over time.
+    # We take the mean to get a single value for reporting.
+    roughness = np.mean(roughness_array) if isinstance(roughness_array, np.ndarray) else roughness_array
+    print(f"  - Roughness: {roughness:.2f} asper")
+
+    # Save metrics to JSON
+    metrics = {
+        "loudness_sones": loudness,
+        "sharpness_acum": sharpness,
+        "roughness_asper": roughness,
+    }
+    metrics_path = os.path.join(output_dir, f"{filename_prefix}_{mic_name}_psychoacoustic_metrics.json")
+    with open(metrics_path, 'w') as f:
+        json.dump(metrics, f, indent=4)
+    print(f"Psychoacoustic metrics saved to {metrics_path}")
+
+
+def process_effects_and_save(mixed_audio, rir, mic_name, mic_type, fs,
+                             output_dir, simulation_name, effects=None,
+                             save_rir_flag=False, save_audio_flag=False,
+                             save_acoustics_flag=False,
+                             save_psychoacoustics_flag=False):
     """
     Processes different audio effects, saves the audio, and computes metrics for each.
     """
+
     effects_to_process = effects if effects is not None else ["original"]
 
     for effect in effects_to_process:
@@ -202,8 +274,14 @@ def process_effects_and_save(mixed_audio, rir, mic_name, mic_type, fs, output_di
 
         os.makedirs(current_output_dir, exist_ok=True)
 
-        save_audio_files(effected_audio, mic_type, fs, current_output_dir, filename_prefix)
-        compute_and_save_metrics(rir, effected_audio, mic_name, mic_type, fs, current_output_dir, simulation_name)
+        if save_rir_flag:
+            save_rir(rir, mic_name, fs, output_dir, simulation_name)
+        if save_audio_flag:
+            save_audio_files(effected_audio, mic_type, fs, current_output_dir, filename_prefix)
+        if save_acoustics_flag:
+            compute_and_save_metrics(rir, effected_audio, mic_name, mic_type, fs, current_output_dir, simulation_name)
+        if save_psychoacoustics_flag:
+            compute_and_save_psychoacoustic_metrics(effected_audio, fs, current_output_dir, simulation_name, mic_name)
 
 
 def save_performance_metrics(monitor, output_dir, demo_name):

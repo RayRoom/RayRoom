@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.signal import butter, lfilter
+import mosqito as mq
 
 
 def schroeder_integration(rir):
@@ -20,18 +21,18 @@ def schroeder_integration(rir):
 
             import numpy as np
             import rayroom as rt
-            
+
             fs = 44100
             rir_duration = 2.0  # seconds
             num_samples = int(fs * rir_duration)
-            
+
             # Generate a dummy RIR with exponential decay
             t = np.linspace(0, rir_duration, num_samples)
             rir = np.exp(-5 * t) * np.random.randn(num_samples)
-            
+
             # Compute the Schroeder curve
             sch_db = rt.analytics.acoustics.schroeder_integration(rir)
-            
+
             # The sch_db can now be used to calculate RT60, EDT, etc.
 
 
@@ -143,10 +144,10 @@ def calculate_rt60(sch_db, fs):
             num_samples = int(fs * rir_duration)
             t = np.linspace(0, rir_duration, num_samples)
             rir = np.exp(-5 * t) * np.random.randn(num_samples)
-            
+
             sch_db = rt.analytics.acoustics.schroeder_integration(rir)
             t20 = rt.analytics.acoustics.calculate_rt60(sch_db, fs)
-            
+
             print(f"T20 Reverberation Time: {t20:.2f} seconds")
 
     :param sch_db: Schroeder decay curve in dB.
@@ -182,10 +183,10 @@ def calculate_edt(sch_db, fs):
             num_samples = int(fs * rir_duration)
             t = np.linspace(0, rir_duration, num_samples)
             rir = np.exp(-5 * t) * np.random.randn(num_samples)
-            
+
             sch_db = rt.analytics.acoustics.schroeder_integration(rir)
             edt = rt.analytics.acoustics.calculate_edt(sch_db, fs)
-            
+
             print(f"Early Decay Time: {edt:.2f} seconds")
 
     :param sch_db: Schroeder decay curve in dB.
@@ -221,10 +222,10 @@ def octave_band_filter(data, fs, center_freq, order=4):
             duration = 1.0
             num_samples = int(fs * duration)
             t = np.linspace(0, duration, num_samples, endpoint=False)
-            
+
             # White noise signal
             noise = np.random.randn(num_samples)
-            
+
             # Filter the noise in the 1000 Hz octave band
             filtered_noise = rt.analytics.acoustics.octave_band_filter(
                 noise, fs, center_freq=1000
@@ -279,7 +280,7 @@ def get_octave_bands(subdivisions=1):
             # Standard octave bands
             bands = rt.analytics.acoustics.get_octave_bands()
             print("Standard bands:", bands)
-            
+
             # 1/3-octave bands (approximately)
             sub_bands = rt.analytics.acoustics.get_octave_bands(subdivisions=3)
             print("1/3-octave bands:", sub_bands)
@@ -331,11 +332,11 @@ def calculate_clarity(rir, fs, time_threshold_ms):
             num_samples = int(fs * rir_duration)
             t = np.linspace(0, rir_duration, num_samples)
             rir = np.exp(-6 * t) * np.random.randn(num_samples)
-            
+
             # Calculate C50 (clarity for speech)
             c50 = rt.analytics.acoustics.calculate_clarity(rir, fs, 50)
             print(f"C50: {c50:.2f} dB")
-            
+
             # Calculate C80 (clarity for music)
             c80 = rt.analytics.acoustics.calculate_clarity(rir, fs, 80)
             print(f"C80: {c80:.2f} dB")
@@ -396,7 +397,7 @@ def calculate_drr(rir, fs, direct_sound_window_ms=5):
             num_samples = int(fs * rir_duration)
             t = np.linspace(0, rir_duration, num_samples)
             rir = np.exp(-6 * t) * np.random.randn(num_samples)
-            
+
             # Calculate DRR
             drr = rt.analytics.acoustics.calculate_drr(rir, fs)
             print(f"DRR: {drr:.2f} dB")
@@ -431,3 +432,136 @@ def calculate_drr(rir, fs, direct_sound_window_ms=5):
 
     drr = 10 * np.log10(direct_energy / reverberant_energy)
     return drr
+
+
+def calculate_loudness(signal, fs):
+    """Calculates the loudness of a signal according to ISO 532-1 (Zwicker method).
+
+    This function computes the psychoacoustic loudness of a sound, which
+    corresponds to the perceived intensity of the sound. It uses the Zwicker
+    model for stationary signals.
+
+    Responsibilities:
+      * Calculate the specific loudness.
+      * Compute the total loudness in sones.
+
+    Example:
+
+        .. code-block:: python
+
+            import numpy as np
+            import rayroom as rt
+
+            fs = 44100
+            duration = 1.0
+            num_samples = int(fs * duration)
+            t = np.linspace(0, duration, num_samples, endpoint=False)
+
+            # Generate a 1 kHz tone
+            signal = np.sin(2 * np.pi * 1000 * t)
+
+            # Calculate loudness
+            loudness, N_specific = rt.analytics.acoustics.calculate_loudness(signal, fs)
+            print(f"Loudness: {loudness:.2f} sones")
+
+    :param signal: Input signal.
+    :type signal: np.ndarray
+    :param fs: Sampling frequency.
+    :type fs: int
+    :return: A tuple containing:
+                - Total loudness in sones.
+                - Specific loudness in sones/Bark.
+    :rtype: tuple(float, np.ndarray)
+    """
+    loudness, N_specific, bark_axis = mq.sq_metrics.loudness.loudness_zwst(signal, fs)
+    return loudness, N_specific
+
+
+def calculate_sharpness(signal, fs):
+    """Calculates the sharpness of a sound according to DIN 45692.
+
+    Sharpness is a measure of the high-frequency content of a sound. A sound
+    with more high-frequency energy is perceived as "sharper." This calculation
+    is based on the specific loudness.
+
+    Responsibilities:
+      * Calculate sharpness from the specific loudness spectrum.
+
+    Example:
+
+        .. code-block:: python
+
+            import numpy as np
+            import rayroom as rt
+
+            fs = 44100
+            duration = 1.0
+            num_samples = int(fs * duration)
+            t = np.linspace(0, duration, num_samples, endpoint=False)
+
+            # Generate a high-frequency weighted noise
+            noise = np.random.randn(num_samples)
+            b, a = rt.analytics.acoustics.butter(4, 2000/(fs/2), 'high')
+            sharp_noise = rt.analytics.acoustics.lfilter(b, a, noise)
+
+
+            # Calculate sharpness
+            sharpness = rt.analytics.acoustics.calculate_sharpness(sharp_noise, fs)
+            print(f"Sharpness: {sharpness:.2f} acum")
+
+    :param signal: Input signal.
+    :type signal: np.ndarray
+    :param fs: Sampling frequency.
+    :type fs: int
+    :return: Sharpness value in acum.
+    :rtype: float
+    """
+    sharpness = mq.sq_metrics.sharpness.sharpness_din_st(signal, fs)
+    return sharpness
+
+
+def calculate_roughness(signal, fs):
+    """Calculates the roughness of a sound (Daniel and Weber method).
+
+    Roughness quantifies the perception of rapid (15-300 Hz) amplitude
+    modulations in a signal. It is a key indicator of sound quality, often
+    associated with unpleasantness.
+
+    Responsibilities:
+      * Calculate the roughness based on the signal's modulation spectrum.
+
+    P. Daniel and R. Weber. Psychoacoustical roughness: implementation of an optimized model.
+    Acta Acustica, Vol. 83: 113-123, 1997.
+
+    Example:
+
+        .. code-block:: python
+
+            import numpy as np
+            import rayroom as rt
+
+            fs = 44100
+            duration = 1.0
+            num_samples = int(fs * duration)
+            t = np.linspace(0, duration, num_samples, endpoint=False)
+
+            # Generate an amplitude-modulated tone (40 Hz modulation)
+            carrier = np.sin(2 * np.pi * 1000 * t)
+            modulator = 0.5 * (1 + np.sin(2 * np.pi * 40 * t))
+            am_signal = carrier * modulator
+
+            # Calculate roughness
+            roughness, R_specific = rt.analytics.acoustics.calculate_roughness(am_signal, fs)
+            print(f"Roughness: {roughness:.2f} asper")
+
+    :param signal: Input signal.
+    :type signal: np.ndarray
+    :param fs: Sampling frequency.
+    :type fs: int
+    :return: A tuple containing:
+                - Total roughness in asper.
+                - Specific roughness.
+    :rtype: tuple(float, np.ndarray)
+    """
+    roughness, R_specific, bark_axis, _ = mq.sq_metrics.roughness.roughness_dw(signal, fs)
+    return roughness, R_specific

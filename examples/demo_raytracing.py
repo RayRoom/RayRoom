@@ -10,6 +10,7 @@ from rayroom.effects import presets
 from demo_utils import (
     create_demo_room,
     generate_layouts,
+    save_room_mesh,
     process_effects_and_save,
     DEFAULT_SAMPLING_RATE,
     save_performance_metrics,
@@ -18,7 +19,9 @@ from demo_utils import (
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 
-def main(mic_type='mono', output_dir='outputs', effects=None):
+def main(mic_type='mono', output_dir='outputs', effects=None,
+         save_rir_flag=False, save_audio_flag=True, save_acoustics_flag=True,
+         save_psychoacoustics_flag=False, save_mesh_flag=True):
     # 1. Define Room for Raytracing (8 square meters -> e.g., 4m x 2m or 2.83m x 2.83m)
     # Using 4m x 2m x 2.5m height
     room, sources, mic = create_demo_room(mic_type)
@@ -32,6 +35,10 @@ def main(mic_type='mono', output_dir='outputs', effects=None):
 
     # 5. Save layout visualization
     generate_layouts(room, output_dir, "raytracing")
+
+    # Save mesh if requested
+    if save_mesh_flag:
+        save_room_mesh(room, output_dir, "raytracing")
 
     # 6. Setup Ray-tracing Renderer
     print("Initializing Ray-tracing Renderer...")
@@ -76,7 +83,9 @@ def main(mic_type='mono', output_dir='outputs', effects=None):
 
     process_effects_and_save(
         mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE,
-        output_dir, "raytracing", effects
+        output_dir, "raytracing", effects, save_rir_flag=save_rir_flag,
+        save_audio_flag=save_audio_flag, save_acoustics_flag=save_acoustics_flag,
+        save_psychoacoustics_flag=save_psychoacoustics_flag
     )
 
 
@@ -93,6 +102,34 @@ if __name__ == "__main__":
         help="Output directory for saving files."
     )
     parser.add_argument(
+        '--save_rir',
+        action='store_true',
+        help="Save the Room Impulse Response (RIR) as a WAV file."
+    )
+    parser.add_argument(
+        '--no-save-audio',
+        action='store_false',
+        dest='save_audio',
+        help="Do not save the output audio files."
+    )
+    parser.add_argument(
+        '--no-save-acoustics',
+        action='store_false',
+        dest='save_acoustics',
+        help="Do not compute and save acoustic metrics."
+    )
+    parser.add_argument(
+        '--save-psychoacoustics',
+        action='store_true',
+        help="Compute and save psychoacoustic metrics."
+    )
+    parser.add_argument(
+        '--no-save-mesh',
+        action='store_false',
+        dest='save_mesh',
+        help="Do not save the room geometry as an OBJ mesh file."
+    )
+    parser.add_argument(
         '--effects',
         type=str,
         nargs='*',
@@ -100,5 +137,9 @@ if __name__ == "__main__":
         choices=list(presets.EFFECTS.keys()) + ["original"],
         help="Apply a post-processing effect to the output audio."
     )
+    parser.set_defaults(save_audio=True, save_acoustics=True, save_psychoacoustics=False, save_mesh=True)
     args = parser.parse_args()
-    main(mic_type=args.mic, output_dir=args.output_dir, effects=args.effects)
+    main(mic_type=args.mic, output_dir=args.output_dir, effects=args.effects, save_rir_flag=args.save_rir,
+         save_audio_flag=args.save_audio, save_acoustics_flag=args.save_acoustics,
+         save_psychoacoustics_flag=args.save_psychoacoustics,
+         save_mesh_flag=args.save_mesh)

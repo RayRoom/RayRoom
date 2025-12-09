@@ -104,6 +104,26 @@ class Room:
         else:
             plot_room(self, filename, show)
 
+    def save_mesh(self, filename):
+        """
+        Save the room geometry as an OBJ mesh file.
+
+        :param filename: Path to save the OBJ file.
+        :type filename: str
+        """
+        from .visualize import save_mesh
+        save_mesh(self, filename)
+
+    def save_mesh_viewer(self, obj_filename, html_filename):
+        """
+        Save an HTML file with a 3D viewer for the given OBJ file.
+
+        :param obj_filename: Path to the OBJ file to view.
+        :param html_filename: Path to save the HTML file.
+        """
+        from .visualize import save_mesh_viewer
+        save_mesh_viewer(self, obj_filename, html_filename)
+
     @classmethod
     def create_shoebox(cls, dimensions, materials=None, fs=16000):
         """

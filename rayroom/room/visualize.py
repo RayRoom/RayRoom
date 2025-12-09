@@ -7,6 +7,8 @@ from ..analytics.acoustics import (
     octave_band_filter,
     get_octave_bands,
 )
+import os
+import json
 
 
 def plot_room(room, filename=None, show=True):
@@ -559,3 +561,315 @@ def plot_spectrogram(audio_data, fs, title="Spectrogram", filename=None, show=Tr
         plt.show()
     else:
         plt.close(fig)
+
+
+def save_mesh(room, filename):
+    """
+    Save the room geometry as an OBJ mesh file.
+
+    :param room: The Room object to save.
+    :param filename: Path to save the OBJ file.
+    """
+    with open(filename, 'w') as f:
+        f.write("# RayRoom Room Geometry\n")
+        vertex_offset = 1  # OBJ indices are 1-based
+
+        # --- Walls ---
+        for wall in room.walls:
+            f.write(f"o {wall.name}\n")
+            # Write vertices for this wall
+            for v in wall.vertices:
+                f.write(f"v {v[0]} {v[1]} {v[2]}\n")
+
+            # Write face for this wall
+            face_indices = " ".join(str(i) for i in range(vertex_offset, vertex_offset + len(wall.vertices)))
+            f.write(f"f {face_indices}\n")
+            vertex_offset += len(wall.vertices)
+
+        # --- Furniture ---
+        for furn in room.furniture:
+            f.write(f"o {furn.name}\n")
+
+            # Write vertices for this furniture
+            for v in furn.vertices:
+                f.write(f"v {v[0]} {v[1]} {v[2]}\n")
+            # Write faces for this furniture
+            for face in furn.faces:
+                face_indices_str = " ".join([str(vertex_offset + i) for i in face])
+                f.write(f"f {face_indices_str}\n")
+
+            vertex_offset += len(furn.vertices)
+    print(f"Room mesh saved to {filename}")
+
+
+def save_mesh_viewer(room, obj_filename, html_filename):
+    """
+    Save an HTML file with a 3D viewer for the given OBJ file.
+
+    :param room: The Room object to get object names from.
+    :param obj_filename: Path to the OBJ file to view.
+    :param html_filename: Path to save the HTML file.
+    """
+    try:
+        with open(obj_filename, 'r') as f:
+            obj_content = f.read()
+    except FileNotFoundError:
+        print(f"Error: Could not find OBJ file at {obj_filename}")
+        return
+
+    # Escape backticks for JavaScript template literal
+    obj_content_js = obj_content.replace('`', '\\`')
+
+    object_names = [w.name for w in room.walls] + [f.name for f in room.furniture]
+    object_names_json = json.dumps(object_names)
+
+    html_template = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Mesh Viewer</title>
+    <style>
+        body {{ margin: 0; font-family: sans-serif; }}
+        canvas {{ display: block; }}
+        #sidebar {{
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 250px;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 5px;
+            padding: 10px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }}
+        #sidebar h2 {{
+            margin-top: 0;
+            font-size: 1.1em;
+        }}
+        .control {{
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }}
+        .control label {{
+            margin-right: 10px;
+        }}
+        #objectList {{
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }}
+        #objectList li {{
+            padding: 4px 0;
+            display: flex;
+            align-items: center;
+        }}
+        #objectList input {{
+            margin-right: 8px;
+        }}
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h2>Room Objects</h2>
+        <div class="control">
+            <input type="checkbox" id="transparencyToggle" checked>
+            <label for="transparencyToggle">Ghost View</label>
+        </div>
+        <div class="control">
+            <input type="checkbox" id="edgesToggle" checked>
+            <label for="edgesToggle">Show Edges</label>
+        </div>
+        <div class="control">
+            <input type="checkbox" id="verticesToggle">
+            <label for="verticesToggle">Show Vertices</label>
+        </div>
+        <ul id="objectList"></ul>
+    </div>
+
+    <script type="importmap">
+        {{
+            "imports": {{
+                "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+            }}
+        }}
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import {{ OBJLoader }} from 'three/addons/loaders/OBJLoader.js';
+        import {{ OrbitControls }} from 'three/addons/controls/OrbitControls.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xdddddd);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.up.set(0, 0, 1); // Z is up
+
+        const renderer = new THREE.WebGLRenderer({{ antialias: true }});
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        
+        const objContent = String.raw`{obj_content_js}`;
+        const loader = new OBJLoader();
+        const object = loader.parse(objContent);
+        
+        const box = new THREE.Box3().setFromObject(object);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+
+        object.position.sub(center);
+        scene.add(object);
+        
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const fov = camera.fov * (Math.PI / 180);
+        const cameraDistance = maxDim / (2 * Math.tan(fov / 2));
+        
+        camera.position.y = -cameraDistance * 1.5;
+        camera.lookAt(0, 0, 0);
+
+        controls.target.set(0, 0, 0);
+        controls.update();
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(0, -1, 1);
+        scene.add(directionalLight);
+
+        // --- Interactivity ---
+        const objectMap = {{}};
+        const allEdges = [];
+        const allVertices = [];
+
+        object.children.forEach(child => {{
+            objectMap[child.name] = child;
+            child.traverse(node => {{
+                if (node.isMesh) {{
+                    node.userData.originalMaterial = node.material;
+
+                    // Edges
+                    const edges = new THREE.EdgesGeometry(node.geometry);
+                    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({{ color: 0x000000 }}));
+                    node.add(line);
+                    allEdges.push(line);
+
+                    // Vertices
+                    const pointsMaterial = new THREE.PointsMaterial({{ color: 0x0000ff, size: 0.05 }});
+                    const points = new THREE.Points(node.geometry, pointsMaterial);
+                    node.add(points);
+                    allVertices.push(points);
+                }}
+            }});
+        }});
+
+        const objectNames = JSON.parse(String.raw`{object_names_json}`);
+        const objectList = document.getElementById('objectList');
+
+        objectNames.forEach(name => {{
+            const li = document.createElement('li');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.id = `check-${{name}}`;
+            checkbox.dataset.name = name;
+            
+            const label = document.createElement('label');
+            label.htmlFor = `check-${{name}}`;
+            label.textContent = name;
+            
+            li.appendChild(checkbox);
+            li.appendChild(label);
+            objectList.appendChild(li);
+
+            checkbox.addEventListener('change', (event) => {{
+                const objectToShowOrHide = objectMap[event.target.dataset.name];
+                if (objectToShowOrHide) {{
+                    objectToShowOrHide.visible = event.target.checked;
+                }}
+            }});
+        }});
+
+        const transparencyToggle = document.getElementById('transparencyToggle');
+        const edgesToggle = document.getElementById('edgesToggle');
+        const verticesToggle = document.getElementById('verticesToggle');
+        
+        function setTransparency(isTransparent) {{
+            for (const name in objectMap) {{
+                const obj = objectMap[name];
+                obj.traverse(node => {{
+                    if (node.isMesh) {{
+                        if (isTransparent) {{
+                            if (!node.userData.transparentMaterial) {{
+                                const newMaterial = node.material.clone();
+                                newMaterial.transparent = true;
+                                const lowerName = name.toLowerCase();
+                                if (lowerName.includes('wall') || lowerName.includes('ceiling') || lowerName.includes('floor') || lowerName.includes('window')) {{
+                                    newMaterial.opacity = 0.2;
+                                }} else {{
+                                    newMaterial.opacity = 0.5;
+                                }}
+                                node.userData.transparentMaterial = newMaterial;
+                            }}
+                            node.material = node.userData.transparentMaterial;
+                        }} else {{
+                            node.material = node.userData.originalMaterial;
+                        }}
+                    }}
+                }});
+            }}
+        }}
+
+        function setEdgesVisibility(visible) {{
+            allEdges.forEach(edge => {{
+                edge.visible = visible;
+            }});
+        }}
+
+        function setVerticesVisibility(visible) {{
+            allVertices.forEach(vertex => {{
+                vertex.visible = visible;
+            }});
+        }}
+
+        transparencyToggle.addEventListener('change', (event) => {{
+            setTransparency(event.target.checked);
+        }});
+
+        edgesToggle.addEventListener('change', (event) => {{
+            setEdgesVisibility(event.target.checked);
+        }});
+
+        verticesToggle.addEventListener('change', (event) => {{
+            setVerticesVisibility(event.target.checked);
+        }});
+        
+        // Set initial state from checkbox
+        setTransparency(transparencyToggle.checked);
+        setEdgesVisibility(edgesToggle.checked);
+        setVerticesVisibility(verticesToggle.checked);
+        
+        function animate() {{
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }}
+        animate();
+
+        window.addEventListener('resize', () => {{
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }}, false);
+    </script>
+</body>
+</html>
+"""
+    with open(html_filename, 'w') as f:
+        f.write(html_template)
+    print(f"Mesh viewer saved to {html_filename}")

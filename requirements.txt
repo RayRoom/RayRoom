@@ -5,3 +5,4 @@ flake8
 matplotlib
 pedalboard
 soundfile
+mosqito

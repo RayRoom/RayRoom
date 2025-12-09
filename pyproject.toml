@@ -23,6 +23,7 @@ dependencies = [
     "scipy",
     "matplotlib",
     "tqdm",
+    "mosqito",
 ]
 
 [project.optional-dependencies]
