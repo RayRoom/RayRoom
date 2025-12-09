@@ -16,7 +16,7 @@ from rayroom import (
     SquareCarpet, Subwoofer, FloorstandingSpeaker,
     # Wall Objects
     Window, DoubleRectangleWindow, SquareWindow,
-    Painting, FloatingTVShelf, WallShelf, KitchenCabinet, Clock,
+    Painting, FloatingTVShelf, WallShelf, KitchenCabinet, Clock, Door,
     # Electronics
     Smartphone, Tablet, EchoDot5, EchoDot2, EchoShow5, GoogleNestMini, AmazonEcho2,
     # Hospital & Office Equipment
@@ -152,14 +152,14 @@ def create_huge_room(mic_type='mono'):
     # === Add All Furniture and Objects ===
     all_objects = {
         # Living Room Zone (front-left corner)
-        "ThreeSeatCouch": ThreeSeatCouch("Couch1", [3, 4, 0], rotation_z=20),
-        "TwoSeatCouch": TwoSeatCouch("Couch2", [6, 2, 0], rotation_z=-10),
-        "OneSeatCouch": OneSeatCouch("Armchair", [2, 7, 0]),
-        "CoffeeTable": CoffeeTable("CoffeeTbl", [4, 5, 0]),
+        "ThreeSeatCouch": ThreeSeatCouch("Couch1", [1, 4, 0], rotation_z=-90),
+        "TwoSeatCouch": TwoSeatCouch("Couch2", [4.25, 4, 0], rotation_z=90),
+        "OneSeatCouch": OneSeatCouch("Armchair", [2.5, 5.6, 0], rotation_z=180),
+        "CoffeeTable": CoffeeTable("CoffeeTbl", [2.7, 4, 0]),
+        "SquareCarpet": SquareCarpet("Carpet1", [2.6, 4, 0.01]),
         "DiningTable": DiningTable("DiningTbl", [8, 6, 0]),
         "Chair": Chair("Chair1", [7.5, 5, 0]),
-        "Desk": Desk("Desk1", [2, 12, 0], rotation_z=15),
-        "SquareCarpet": SquareCarpet("Carpet1", [4, 4, 0.01]),
+        "Desk": Desk("Desk1", [2, 10, 0], rotation_z=15),
         "Subwoofer": Subwoofer("Sub1", [1, 1, 0]),
         "FloorstandingSpeaker": FloorstandingSpeaker("SpeakerL", [1, 6, 0]),
         "TV": TV("TV1", [4, 1, 0.8], rotation_z=0),
@@ -173,6 +173,7 @@ def create_huge_room(mic_type='mono'):
         "WallShelf": WallShelf("Shelf1", [2, 20, 3], rotation_z=180),
         "KitchenCabinet": KitchenCabinet("K-Cabinet", [20, 0, 2.5]),
         "Clock": Clock("Clock1", [12.5, 0, 4]),
+        "Door": Door("Door1", [15, 0, 0]),
         "ACWallUnit": ACWallUnit("AC1", [25, 10, 4], rotation_z=-90),
 
         # Electronics Zone (on/near desk)
@@ -183,22 +184,22 @@ def create_huge_room(mic_type='mono'):
         "EchoShow5": EchoShow5("EchoShow", [1.5, 12.5, 0.75]),
         "GoogleNestMini": GoogleNestMini("NestMini", [1, 11.7, 0.75]),
         "AmazonEcho2": AmazonEcho2("EchoGen2", [1, 11.4, 0.75]),
-        "CRTMonitor": CRTMonitor("CRT", [2.2, 12.5, 0.75]),
-        "LCDMonitor": LCDMonitor("LCD", [1.8, 12.5, 0.75]),
-        "iMac": iMac("iMac1", [2, 11.8, 0.75]),
-        "Laptop": Laptop("Laptop1", [2.2, 11.9, 0.75]),
-        "Printer": Printer("Printer1", [1, 13, 0]),
+        "CRTMonitor": CRTMonitor("CRT", [2.2, 9.5, 0.75], rotation_z=90),
+        "LCDMonitor": LCDMonitor("LCD", [1.8, 7.5, 0.75], rotation_z=90),
+        "iMac": iMac("iMac1", [2, 12.8, 0.75], rotation_z=90),
+        "Laptop": Laptop("Laptop1", [12, 10, 0], rotation_z=90),
+        "Printer": Printer("Printer1", [8, 10, 0], rotation_z=90),
         "StackOfPaper": StackOfPaper("Paper1", [1, 13.5, 0]),
 
         # Hospital Zone (back-right corner)
-        "HospitalBed": HospitalBed("H-Bed", [22, 17, 0]),
+        "HospitalBed": HospitalBed("HospitalBed", [22, 17, 0]),
         "ExaminingTable": ExaminingTable("ExamTbl", [18, 17, 0]),
-        "DentalChair": DentalChair("DentistChair", [15, 17, 0]),
+        "DentalChair": DentalChair("DentistChair", [15, 17, 0], rotation_z=15),
         "MedicalStool": MedicalStool("Stool1", [16, 16, 0], rotation_z=15),
         "HorizontalCabinets": HorizontalCabinets("HCabinet", [24, 15, 1]),
         "VerticalCabinets": VerticalCabinets("VCabinet", [24, 14, 0]),
         "Sink": Sink("Sink1", [24, 12, 0]),
-        "Wheelchair": Wheelchair("WC1", [20, 15, 0]),
+        "Wheelchair": Wheelchair("WC1", [20, 15, 0], rotation_z=90),
         "Walker": Walker("Walker1", [21, 15, 0]),
         "Defibrillator": Defibrillator("Defib1", [18, 15, 0]),
         "WeighingScale": WeighingScale("Scale1", [17, 15, 0]),
@@ -213,8 +214,8 @@ def create_huge_room(mic_type='mono'):
         "RoundBin": RoundBin("Bin1", [1, 14, 0]),
         "SquareBin": SquareBin("Bin2", [14, 1, 0]),
         "CeilingFan": CeilingFan("Fan1", [12.5, 10, 5], rotation_z=15),
-        "TallFanOnFoot": TallFanOnFoot("TallFan", [1, 18, 0]),
-        "SmallFanOnFoot": SmallFanOnFoot("SmallFan", [14, 18, 0]),
+        "TallFanOnFoot": TallFanOnFoot("TallFan", [1, 18, 0], rotation_z=90),
+        "SmallFanOnFoot": SmallFanOnFoot("SmallFan", [14, 18, 0], rotation_z=90),
         "TissueBox": TissueBox("Tissues", [2.1, 12, 0.75+0.3]),
     }
 

@@ -7,7 +7,7 @@ from .room.objects import (
     ThreeSeatCouch, TwoSeatCouch, OneSeatCouch,
     SquareCarpet, Subwoofer, FloorstandingSpeaker,
     Window, DoubleRectangleWindow, SquareWindow,
-    Painting, FloatingTVShelf, WallShelf, KitchenCabinet, Clock,
+    Painting, FloatingTVShelf, WallShelf, KitchenCabinet, Clock, Door,
     Smartphone, Tablet, EchoDot5, EchoDot2, EchoShow5, GoogleNestMini, AmazonEcho2,
     CRTMonitor, LCDMonitor, iMac, Laptop, Printer, StackOfPaper, TissueBox,
     RoundBin, SquareBin, CeilingFan, ACWallUnit, TallFanOnFoot, SmallFanOnFoot,

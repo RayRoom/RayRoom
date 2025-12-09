@@ -412,6 +412,88 @@ def _create_cylinder_vertices_faces(radius, height, resolution=16, center_bottom
     return np.array(verts), faces
 
 
+def _create_ring_vertices_faces(outer_radius, inner_radius, height, resolution=16, center_bottom_pos=(0, 0, 0)):
+    """
+    Creates vertices and faces for a ring (a cylinder with a hole).
+    """
+    x, y, z = center_bottom_pos
+    verts = []
+
+    # Bottom outer, bottom inner, top outer, top inner
+    for r in [outer_radius, inner_radius]:
+        for h_offset in [0, height]:
+            for i in range(resolution):
+                angle = 2 * np.pi * i / resolution
+                verts.append([x + r * np.cos(angle), y + r * np.sin(angle), z + h_offset])
+
+    faces = []
+    res = resolution
+    # Outer wall
+    for i in range(res):
+        p1 = i
+        p2 = (i + 1) % res
+        p3 = i + 2 * res
+        p4 = (i + 1) % res + 2 * res
+        faces.append([p1, p2, p4, p3])
+
+    # Inner wall
+    for i in range(res):
+        p1 = i + res
+        p2 = (i + 1) % res + res
+        p3 = i + 3 * res
+        p4 = (i + 1) % res + 3 * res
+        faces.append([p1, p3, p4, p2])
+
+    # Top surface
+    for i in range(res):
+        p1 = i + 2 * res
+        p2 = (i + 1) % res + 2 * res
+        p3 = i + 3 * res
+        p4 = (i + 1) % res + 3 * res
+        faces.append([p1, p3, p4, p2])
+
+    # Bottom surface
+    for i in range(res):
+        p1 = i
+        p2 = (i + 1) % res
+        p3 = i + res
+        p4 = (i + 1) % res + res
+        faces.append([p1, p3, p4, p2])
+
+    return np.array(verts), faces
+
+
+def _create_torus_vertices_faces(major_radius, minor_radius, major_resolution=24, minor_resolution=12):
+    """
+    Creates vertices and faces for a torus.
+    """
+    verts = []
+    # Generate vertices
+    for i in range(major_resolution + 1):
+        u = 2 * np.pi * i / major_resolution
+        cos_u, sin_u = np.cos(u), np.sin(u)
+        for j in range(minor_resolution + 1):
+            v = 2 * np.pi * j / minor_resolution
+            cos_v, sin_v = np.cos(v), np.sin(v)
+
+            x = (major_radius + minor_radius * cos_v) * cos_u
+            y = (major_radius + minor_radius * cos_v) * sin_u
+            z = minor_radius * sin_v
+            verts.append([x, y, z])
+
+    faces = []
+    # Generate faces
+    for i in range(major_resolution):
+        for j in range(minor_resolution):
+            p1_idx = i * (minor_resolution + 1) + j
+            p2_idx = (i + 1) * (minor_resolution + 1) + j
+            p3_idx = (i + 1) * (minor_resolution + 1) + (j + 1)
+            p4_idx = i * (minor_resolution + 1) + (j + 1)
+            faces.append([p1_idx, p2_idx, p3_idx, p4_idx])
+
+    return np.array(verts), faces
+
+
 class Chair(Furniture):
     """
     Represents a simple chair made of a seat, a back, and four legs.
@@ -754,12 +836,39 @@ class KitchenCabinet(Furniture):
 
 class Clock(Furniture):
     """
-    Represents a wall clock as a thin square box.
+    Represents a wall clock as a thin cylinder.
     The object's position is its geometric center.
     """
-    def __init__(self, name, position, rotation_z=0, size=0.3, thickness=0.05, material_name="plastic"):
-        dims = [size, thickness, size]
-        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, -size / 2])
+    def __init__(self, name, position, rotation_z=0, diameter=0.3, thickness=0.05,
+                 material_name="plastic", resolution=16):
+        radius = diameter / 2
+        # Create a cylinder oriented along the Z-axis, centered at the origin
+        verts, faces = _create_cylinder_vertices_faces(
+            radius, thickness, resolution=resolution, center_bottom_pos=[0, 0, -thickness / 2]
+        )
+
+        # Rotate the cylinder to be flat against a wall (Y-axis as normal)
+        # This rotates it from being upright on XY plane to being flat on XZ plane.
+        angle = np.deg2rad(-90)
+        rotation_matrix = np.array([
+            [1, 0, 0],
+            [0, np.cos(angle), -np.sin(angle)],
+            [0, np.sin(angle), np.cos(angle)]
+        ])
+        verts = np.dot(verts, rotation_matrix.T)
+
+        # The Furniture class init will handle rotation_z and final positioning.
+        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+
+
+class Door(Furniture):
+    """
+    Represents a standard door as a thin box.
+    The object's position is the center of its bottom face.
+    """
+    def __init__(self, name, position, rotation_z=0, width=0.9, height=2.0, thickness=0.05, material_name="wood"):
+        dims = [width, thickness, height]
+        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
         super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
@@ -859,54 +968,107 @@ class AmazonEcho2(Furniture):
 
 class CRTMonitor(Furniture):
     """
-    Represents a CRT monitor.
+    Represents a CRT monitor with a screen, a bulky back, and a stand.
     """
     def __init__(self, name, position, rotation_z=0, material_name="plastic"):
         parts = []
-        # Screen
-        screen_dims = [0.4, 0.4, 0.35]
-        screen_pos = [0, 0, 0.1]
-        parts.append(_create_box_vertices_faces(screen_dims, screen_pos))
-        # Stand
-        stand_dims = [0.2, 0.2, 0.1]
-        stand_pos = [0, 0, 0]
-        parts.append(_create_box_vertices_faces(stand_dims, stand_pos))
+
+        # Base foot
+        base_dims = [0.25, 0.25, 0.04]
+        parts.append(_create_box_vertices_faces(base_dims, [0, 0, 0]))
+
+        # Stand/neck
+        neck_dims = [0.1, 0.1, 0.06]
+        parts.append(_create_box_vertices_faces(neck_dims, [0, 0, 0.04]))
+
+        monitor_bottom_z = 0.1
+
+        # Front part (bezel and screen)
+        front_dims = [0.4, 0.05, 0.35]
+        front_pos = [0, 0.175, monitor_bottom_z]  # Centered at y=0.175 to make front face at y=0.2
+        parts.append(_create_box_vertices_faces(front_dims, front_pos))
+
+        # Back box for CRT
+        back_dims = [0.35, 0.35, 0.3]
+        back_pos_y = -0.025  # Centered to be behind front part
+        back_pos_z = monitor_bottom_z + (front_dims[2] - back_dims[2]) / 2  # Vertically centered with front
+        back_pos = [0, back_pos_y, back_pos_z]
+        parts.append(_create_box_vertices_faces(back_dims, back_pos))
+
         vertices, faces = _create_composite_object(parts)
         super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
 class LCDMonitor(Furniture):
     """
-    Represents an LCD monitor.
+    Represents an LCD monitor with a screen, stand, and base.
     """
     def __init__(self, name, position, rotation_z=0, material_name="plastic"):
         parts = []
+        screen_bottom_z = 0.1
+
+        # Base
+        base_dims = [0.25, 0.2, 0.02]
+        parts.append(_create_box_vertices_faces(base_dims, [0, 0, 0]))
+
+        # Stand/Neck
+        neck_dims = [0.04, 0.04, screen_bottom_z]
+        parts.append(_create_box_vertices_faces(neck_dims, [0, 0, 0.02]))
+
         # Screen
         screen_dims = [0.5, 0.05, 0.3]
-        screen_pos = [0, 0, 0.1]
+        screen_pos = [0, 0, screen_bottom_z]
         parts.append(_create_box_vertices_faces(screen_dims, screen_pos))
-        # Stand
-        stand_dims = [0.2, 0.2, 0.1]
-        stand_pos = [0, 0, 0]
-        parts.append(_create_box_vertices_faces(stand_dims, stand_pos))
+
         vertices, faces = _create_composite_object(parts)
         super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
 class iMac(Furniture):
     """
-    Represents an iMac-style computer.
+    Represents an iMac-style computer with a screen and L-shaped stand.
     """
     def __init__(self, name, position, rotation_z=0, material_name="plastic"):
         parts = []
+
+        # L-shaped stand
+        # Foot part
+        foot_dims = [0.2, 0.2, 0.01]
+        parts.append(_create_box_vertices_faces(foot_dims, [0, 0, 0]))
+        # Hinge part
+        hinge_dims = [0.05, 0.02, 0.1]
+        hinge_pos = [0, -0.09, 0.01]  # At the back of the foot
+        parts.append(_create_box_vertices_faces(hinge_dims, hinge_pos))
+
         # Screen
         screen_dims = [0.55, 0.05, 0.4]
-        screen_pos = [0, 0, 0.1]
-        parts.append(_create_box_vertices_faces(screen_dims, screen_pos))
-        # Stand
-        stand_dims = [0.2, 0.2, 0.1]
-        stand_pos = [0, 0, 0]
-        parts.append(_create_box_vertices_faces(stand_dims, stand_pos))
+        # Create screen geometry centered at the origin for easier rotation
+        screen_verts, screen_faces = _create_box_vertices_faces(
+            screen_dims, [0, 0, -screen_dims[2] / 2]
+        )
+
+        # Tilt the screen back slightly
+        angle = np.deg2rad(-10)
+        rotation_matrix = np.array([
+            [1, 0, 0],
+            [0, np.cos(angle), -np.sin(angle)],
+            [0, np.sin(angle), np.cos(angle)]
+        ])
+        screen_verts = np.dot(screen_verts, rotation_matrix.T)
+
+        # Position the screen to sit on the hinge
+        hinge_top_z = hinge_pos[2] + hinge_dims[2]
+        screen_min_z_after_rot = np.min(screen_verts[:, 2])
+
+        translation = np.array([
+            0,  # Center the screen on the stand's x
+            hinge_pos[1],  # Align the screen's y-center with the hinge's y-center
+            hinge_top_z - screen_min_z_after_rot  # Move screen up to sit on the hinge
+        ])
+
+        screen_verts += translation
+        parts.append((screen_verts, screen_faces))
+
         vertices, faces = _create_composite_object(parts)
         super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
@@ -924,7 +1086,7 @@ class Laptop(Furniture):
         screen_dims = [0.35, 0.01, 0.25]
         screen_verts, screen_faces = _create_box_vertices_faces(screen_dims, [0, 0, 0])
         # Rotate screen part
-        angle = np.deg2rad(100)  # 100 degrees open
+        angle = np.deg2rad(25)  # degrees open
         rotation_matrix = np.array([
             [1, 0, 0],
             [0, np.cos(angle), -np.sin(angle)],
@@ -949,9 +1111,32 @@ class Printer(Furniture):
     Represents a standard office printer.
     """
     def __init__(self, name, position, rotation_z=0, material_name="plastic"):
-        dims = [0.4, 0.45, 0.3]
-        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
-        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+        parts = []
+        width, depth, height = 0.4, 0.45, 0.3
+
+        # Lower part (main body with paper tray)
+        lower_h = height * 0.6
+        lower_dims = [width, depth, lower_h]
+        lower_pos = [0, 0, 0]
+        parts.append(_create_box_vertices_faces(lower_dims, lower_pos))
+
+        # Upper part (scanner unit)
+        upper_h = height * 0.4
+        upper_depth = depth * 0.8
+        upper_dims = [width, upper_depth, upper_h]
+        # Position it on top of the lower part, flush with the back
+        upper_pos = [0, -(depth - upper_depth) / 2, lower_h]
+        parts.append(_create_box_vertices_faces(upper_dims, upper_pos))
+
+        # Paper output tray lip (a small detail)
+        lip_h = 0.02
+        lip_depth = 0.05
+        lip_dims = [width * 0.7, lip_depth, lip_h]
+        lip_pos = [0, depth / 2, lower_h * 0.7]  # Sticking out the front
+        parts.append(_create_box_vertices_faces(lip_dims, lip_pos))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
 class StackOfPaper(Furniture):
@@ -1082,10 +1267,61 @@ class TallFanOnFoot(Furniture):
             0.02, 1.2, resolution=8, center_bottom_pos=[0, 0, 0.05]
         )
         parts.append((pole_verts, pole_faces))
-        # Head
-        head_verts, head_faces = _create_cylinder_vertices_faces(
-            0.2, 0.15, resolution=16, center_bottom_pos=[0, 0, 1.25]
+
+        # Fan Head Assembly (created at origin, pointing along Z-axis)
+        head_assembly_parts = []
+        head_radius = 0.2
+        head_depth = 0.15
+
+        # Motor
+        motor_verts, motor_faces = _create_cylinder_vertices_faces(
+            head_radius * 0.3, head_depth, resolution=12, center_bottom_pos=[0, 0, -head_depth/2]
         )
+        head_assembly_parts.append((motor_verts, motor_faces))
+        
+        # Blades
+        num_blades = 3
+        blade_len = head_radius * 1.6
+        blade_wid = head_radius * 0.5
+        blade_pitch_deg = 20
+        motor_radius = head_radius * 0.3
+
+        for i in range(num_blades):
+            # 1. Create blade centered at origin, aligned with X-axis
+            blade_verts, blade_faces = _create_box_vertices_faces(
+                [blade_len, blade_wid, 0.01],
+                center_bottom_pos=[0, 0, -0.005]
+            )
+
+            # 2. Add pitch by rotating around X-axis
+            pitch_angle = np.deg2rad(blade_pitch_deg)
+            pitch_rot_mat = np.array([
+                [1, 0, 0],
+                [0, np.cos(pitch_angle), -np.sin(pitch_angle)],
+                [0, np.sin(pitch_angle), np.cos(pitch_angle)]
+            ])
+            blade_verts = np.dot(blade_verts, pitch_rot_mat.T)
+            
+            # 3. Translate blade away from center along X-axis
+            blade_pos_x = motor_radius + blade_len / 2
+            blade_verts += np.array([blade_pos_x, 0, 0])
+
+            # 4. Rotate blade to its final position around the fan's Z-axis
+            angle = 2 * np.pi * i / num_blades
+            cos_a, sin_a = np.cos(angle), np.sin(angle)
+            z_rot_mat = np.array([[cos_a, -sin_a, 0], [sin_a, cos_a, 0], [0, 0, 1]])
+            blade_verts = np.dot(blade_verts, z_rot_mat.T)
+            
+            head_assembly_parts.append((blade_verts, blade_faces))
+
+        head_verts, head_faces = _create_composite_object(head_assembly_parts)
+        
+        # Rotate head assembly to be vertical (blades vertical, fan points forward in Y)
+        rot = np.deg2rad(90)
+        rot_mat = np.array([[1, 0, 0], [0, np.cos(rot), -np.sin(rot)], [0, np.sin(rot), np.cos(rot)]])
+        head_verts = np.dot(head_verts, rot_mat.T)
+        # Position the head
+        head_verts += np.array([0, 0, 1.25])
         parts.append((head_verts, head_faces))
 
         vertices, faces = _create_composite_object(parts)
@@ -1108,10 +1344,61 @@ class SmallFanOnFoot(Furniture):
             0.015, 0.4, resolution=8, center_bottom_pos=[0, 0, 0.03]
         )
         parts.append((pole_verts, pole_faces))
-        # Head
-        head_verts, head_faces = _create_cylinder_vertices_faces(
-            0.15, 0.1, resolution=16, center_bottom_pos=[0, 0, 0.43]
+        
+        # Fan Head Assembly (created at origin, pointing along Z-axis)
+        head_assembly_parts = []
+        head_radius = 0.15
+        head_depth = 0.1
+
+        # Motor
+        motor_verts, motor_faces = _create_cylinder_vertices_faces(
+            head_radius * 0.3, head_depth, resolution=12, center_bottom_pos=[0, 0, -head_depth/2]
         )
+        head_assembly_parts.append((motor_verts, motor_faces))
+        
+        # Blades
+        num_blades = 3
+        blade_len = head_radius * 1.6
+        blade_wid = head_radius * 0.5
+        blade_pitch_deg = 20
+        motor_radius = head_radius * 0.3
+
+        for i in range(num_blades):
+            # 1. Create blade centered at origin, aligned with X-axis
+            blade_verts, blade_faces = _create_box_vertices_faces(
+                [blade_len, blade_wid, 0.01],
+                center_bottom_pos=[0, 0, -0.005]
+            )
+
+            # 2. Add pitch by rotating around X-axis
+            pitch_angle = np.deg2rad(blade_pitch_deg)
+            pitch_rot_mat = np.array([
+                [1, 0, 0],
+                [0, np.cos(pitch_angle), -np.sin(pitch_angle)],
+                [0, np.sin(pitch_angle), np.cos(pitch_angle)]
+            ])
+            blade_verts = np.dot(blade_verts, pitch_rot_mat.T)
+            
+            # 3. Translate blade away from center along X-axis
+            blade_pos_x = motor_radius + blade_len / 2
+            blade_verts += np.array([blade_pos_x, 0, 0])
+
+            # 4. Rotate blade to its final position around the fan's Z-axis
+            angle = 2 * np.pi * i / num_blades
+            cos_a, sin_a = np.cos(angle), np.sin(angle)
+            z_rot_mat = np.array([[cos_a, -sin_a, 0], [sin_a, cos_a, 0], [0, 0, 1]])
+            blade_verts = np.dot(blade_verts, z_rot_mat.T)
+            
+            head_assembly_parts.append((blade_verts, blade_faces))
+
+        head_verts, head_faces = _create_composite_object(head_assembly_parts)
+        
+        # Rotate head assembly to be vertical (blades vertical, fan points forward in Y)
+        rot = np.deg2rad(90)
+        rot_mat = np.array([[1, 0, 0], [0, np.cos(rot), -np.sin(rot)], [0, np.sin(rot), np.cos(rot)]])
+        head_verts = np.dot(head_verts, rot_mat.T)
+        # Position the head
+        head_verts += np.array([0, 0, 0.43])
         parts.append((head_verts, head_faces))
 
         vertices, faces = _create_composite_object(parts)
@@ -1120,55 +1407,127 @@ class SmallFanOnFoot(Furniture):
 
 class HospitalBed(Furniture):
     """
-    Represents a hospital bed.
+    Represents a hospital bed with a frame, mattress, headboard, footboard, and side rails.
     """
     def __init__(self, name, position, rotation_z=0, material_name="metal"):
         parts = []
-        # Mattress
-        mattress_dims = [0.9, 2.0, 0.2]
-        parts.append(_create_box_vertices_faces(mattress_dims, [0, 0, 0.4]))
-        # Frame
-        frame_dims = [0.9, 2.0, 0.4]
+        # Dimensions
+        bed_width, bed_depth, bed_height = 0.9, 2.0, 0.6
+        mattress_height = 0.2
+        head_foot_board_height = 0.4
+        rail_height = 0.2
+        # Frame and Mattress
+        frame_dims = [bed_width, bed_depth, bed_height - mattress_height]
         parts.append(_create_box_vertices_faces(frame_dims, [0, 0, 0]))
-        # Headboard
-        headboard_dims = [0.9, 0.05, 0.6]
-        parts.append(_create_box_vertices_faces(headboard_dims, [0, -1.0, 0.4]))
+        mattress_dims = [bed_width, bed_depth, mattress_height]
+        parts.append(_create_box_vertices_faces(mattress_dims, [0, 0, bed_height - mattress_height]))
+        # Headboard and Footboard
+        board_dims = [bed_width, 0.05, head_foot_board_height]
+        headboard_pos = [0, -bed_depth / 2, bed_height]
+        footboard_pos = [0, bed_depth / 2, bed_height]
+        parts.append(_create_box_vertices_faces(board_dims, headboard_pos))
+        parts.append(_create_box_vertices_faces(board_dims, footboard_pos))
+        # Side Rails
+        rail_dims = [0.05, bed_depth * 0.7, rail_height]
+        left_rail_pos = [-bed_width / 2, 0, bed_height]
+        right_rail_pos = [bed_width / 2, 0, bed_height]
+        parts.append(_create_box_vertices_faces(rail_dims, left_rail_pos))
+        parts.append(_create_box_vertices_faces(rail_dims, right_rail_pos))
+
         vertices, faces = _create_composite_object(parts)
         super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
 class ExaminingTable(Furniture):
     """
-    Represents an examining table.
+    Represents an examining table with a padded top and a base frame.
     """
     def __init__(self, name, position, rotation_z=0, material_name="metal"):
-        dims = [0.7, 1.8, 0.8]
-        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
-        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+        parts = []
+        # Dimensions
+        top_width, top_depth, top_height = 0.7, 1.8, 0.1
+        base_height = 0.7
+        leg_width, leg_depth = 0.05, 0.05
+        # Padded Top
+        top_pos = [0, 0, base_height]
+        parts.append(_create_box_vertices_faces([top_width, top_depth, top_height], top_pos))
+        # Base Frame/Legs
+        frame_width = top_width - 0.1
+        frame_depth = top_depth - 0.1
+        leg_positions = [
+            [-frame_width / 2, -frame_depth / 2, 0],
+            [frame_width / 2, -frame_depth / 2, 0],
+            [-frame_width / 2, frame_depth / 2, 0],
+            [frame_width / 2, frame_depth / 2, 0]
+        ]
+        for pos in leg_positions:
+            parts.append(_create_box_vertices_faces([leg_width, leg_depth, base_height], pos))
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
 class DentalChair(Furniture):
     """
-    Represents a dental chair.
+    Represents a dental chair with a base, seat, backrest, headrest, leg rest, and armrests.
     """
     def __init__(self, name, position, rotation_z=0, material_name="plastic"):
         parts = []
-        # Base
-        base_verts, base_faces = _create_cylinder_vertices_faces(
-            0.3, 0.1, resolution=16, center_bottom_pos=[0, 0, 0]
-        )
-        parts.append((base_verts, base_faces))
+        # Dimensions
+        seat_width, seat_depth, seat_thickness = 0.6, 0.6, 0.1
+        seat_z = 0.5
+        # Base and Pole
+        parts.append(_create_cylinder_vertices_faces(0.3, 0.1, resolution=16, center_bottom_pos=[0, 0, 0]))
+        parts.append(_create_cylinder_vertices_faces(0.1, 0.4, resolution=8, center_bottom_pos=[0, 0, 0.1]))
+
         # Seat
-        seat_dims = [0.6, 0.5, 0.1]
-        parts.append(_create_box_vertices_faces(seat_dims, [0, 0, 0.5]))
-        # Back
-        back_dims = [0.6, 0.1, 0.8]
-        back_verts, back_faces = _create_box_vertices_faces(back_dims, [0, 0, 0])
-        angle = np.deg2rad(110)
-        rotation_matrix = np.array([[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]])
+        seat_pos = [0, 0, seat_z]
+        parts.append(_create_box_vertices_faces([seat_width, seat_depth, seat_thickness], seat_pos))
+
+        # Backrest
+        back_dims = [seat_width, 0.1, 0.8]
+        back_verts, back_faces = _create_box_vertices_faces(back_dims, center_bottom_pos=[0, 0, 0])
+        angle = np.deg2rad(45)
+        rotation_matrix = np.array([
+            [1, 0, 0],
+            [0, np.cos(angle), -np.sin(angle)],
+            [0, np.sin(angle), np.cos(angle)]
+        ])
         back_verts = np.dot(back_verts, rotation_matrix.T)
-        back_verts += np.array([0, -0.25, 0.6])
+        back_translation = np.array([0, -seat_depth / 2, seat_z])
+        back_verts += back_translation
         parts.append((back_verts, back_faces))
+
+        # Headrest
+        head_dims = [0.3, 0.08, 0.2]
+        head_verts, head_faces = _create_box_vertices_faces(head_dims, center_bottom_pos=[0, 0, 0])
+        head_verts = np.dot(head_verts, rotation_matrix.T)
+        top_of_back_local = np.array([0, 0, back_dims[2]])
+        headrest_translation = back_translation + np.dot(top_of_back_local, rotation_matrix.T)
+        head_verts += headrest_translation
+        parts.append((head_verts, head_faces))
+
+        # Leg Rest
+        leg_dims = [seat_width, 0.42, 0.1]
+        leg_verts, leg_faces = _create_box_vertices_faces(leg_dims, center_bottom_pos=[0, 0, 0])
+        angle_leg = np.deg2rad(-45)
+        rotation_matrix_leg = np.array([
+            [1, 0, 0],
+            [0, np.cos(angle_leg), -np.sin(angle_leg)],
+            [0, np.sin(angle_leg), np.cos(angle_leg)]
+        ])
+        leg_verts = np.dot(leg_verts, rotation_matrix_leg.T)
+        leg_translation = np.array([0, seat_depth / 2, seat_z])
+        leg_verts += leg_translation
+        parts.append((leg_verts, leg_faces))
+
+        # Armrests
+        arm_dims = [0.05, 0.5, 0.15]
+        arm_z = seat_z + seat_thickness
+        left_arm_pos = [-seat_width/2 - arm_dims[0]/2, 0, arm_z]
+        right_arm_pos = [seat_width/2 + arm_dims[0]/2, 0, arm_z]
+        parts.append(_create_box_vertices_faces(arm_dims, left_arm_pos))
+        parts.append(_create_box_vertices_faces(arm_dims, right_arm_pos))
+
         vertices, faces = _create_composite_object(parts)
         super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
@@ -1258,36 +1617,137 @@ class VerticalCabinets(Furniture):
 
 class Sink(Furniture):
     """
-    Represents a sink.
+    Represents a sink within a cabinet, featuring a semi-cylindrical basin.
     """
     def __init__(self, name, position, rotation_z=0, material_name="metal"):
-        dims = [0.6, 0.5, 0.85]  # As a cabinet with a hole on top
-        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
-        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+        parts = []
+        # --- Dimensions ---
+        cab_w, cab_d, cab_h = 0.6, 0.5, 0.8  # Cabinet dimensions
+        top_h = 0.05  # Countertop height
+        basin_w, basin_d, basin_depth = 0.45, 0.35, 0.15  # Basin dimensions
+
+        # --- Cabinet and Countertop (with a hole) ---
+        # 1. Main cabinet box
+        cabinet_dims = [cab_w, cab_d, cab_h]
+        parts.append(_create_box_vertices_faces(cabinet_dims, center_bottom_pos=[0, 0, 0]))
+
+        # 2. Countertop pieces around the basin hole
+        # Front piece
+        front_strip_d = (cab_d - basin_d) / 2
+        front_dims = [cab_w, front_strip_d, top_h]
+        front_pos = [0, (basin_d + front_strip_d) / 2, cab_h]
+        parts.append(_create_box_vertices_faces(front_dims, front_pos))
+        # Back piece
+        back_pos = [0, -(basin_d + front_strip_d) / 2, cab_h]
+        parts.append(_create_box_vertices_faces(front_dims, back_pos))
+        # Left piece
+        side_strip_w = (cab_w - basin_w) / 2
+        side_dims = [side_strip_w, basin_d, top_h]
+        left_pos = [-(basin_w + side_strip_w) / 2, 0, cab_h]
+        parts.append(_create_box_vertices_faces(side_dims, left_pos))
+        # Right piece
+        right_pos = [(basin_w + side_strip_w) / 2, 0, cab_h]
+        parts.append(_create_box_vertices_faces(side_dims, right_pos))
+
+        # --- Basin (Semi-cylinder) ---
+        verts = []
+        faces = []
+        radius = basin_w / 2
+        resolution = 12  # Number of segments for the curve
+
+        # Generate vertices for the front and back semi-circular arcs
+        for y_offset in [-basin_d / 2, basin_d / 2]:
+            for i in range(resolution + 1):
+                angle = np.pi + (np.pi * i / resolution)  # Range [pi, 2*pi] for U-shape
+                x = radius * np.cos(angle)
+                z = basin_depth + radius * np.sin(angle)  # basin_depth is the bottom
+                verts.append([x, y_offset, z + cab_h - basin_depth])
+
+        # Create faces for the curved basin wall
+        for i in range(resolution):
+            p1 = i
+            p2 = i + 1
+            p3 = i + 1 + (resolution + 1)
+            p4 = i + (resolution + 1)
+            faces.append([p1, p4, p3, p2])  # Inward-facing normal
+
+        # Create faces for the flat side walls of the basin
+        faces.append([0, resolution + 1, resolution + 1 + resolution, resolution])
+        faces.append([0, 1, resolution + 2, resolution + 1])
+
+        # Add the basin geometry to the parts list
+        parts.append((np.array(verts), faces))
+
+        # --- Faucet (simple representation) ---
+        faucet_base_verts, faucet_base_faces = _create_cylinder_vertices_faces(
+            0.02, 0.1, 8, [0, -basin_d/2 - 0.05, cab_h]
+        )
+        parts.append((faucet_base_verts, faucet_base_faces))
+        spout_verts, spout_faces = _create_box_vertices_faces(
+            [0.02, 0.15, 0.02], [0, -basin_d/2, cab_h + 0.1]
+        )
+        parts.append((spout_verts, spout_faces))
+
+
+        # --- Final Assembly ---
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
 class Wheelchair(Furniture):
     """
-    Represents a wheelchair.
+    Represents a wheelchair with a seat, backrest, armrests, large wheels, and footrests.
     """
     def __init__(self, name, position, rotation_z=0, material_name="metal"):
         parts = []
+        seat_width, seat_depth, seat_height = 0.5, 0.5, 0.45
+        
         # Seat
-        seat_dims = [0.5, 0.5, 0.1]
-        parts.append(_create_box_vertices_faces(seat_dims, [0, 0, 0.4]))
-        # Wheels (large)
-        wheel_l_verts, wheel_l_faces = _create_cylinder_vertices_faces(
-            0.3, 0.02, 16, [0, 0, 0]
+        seat_dims = [seat_width, seat_depth, 0.05]
+        parts.append(_create_box_vertices_faces(seat_dims, [0, 0, seat_height]))
+
+        # Backrest
+        back_dims = [seat_width, 0.05, 0.5]
+        back_pos = [0, -seat_depth / 2, seat_height]
+        parts.append(_create_box_vertices_faces(back_dims, back_pos))
+        
+        # Armrests
+        arm_dims = [0.05, seat_depth, 0.2]
+        left_arm_pos = [-seat_width / 2, 0, seat_height]
+        right_arm_pos = [seat_width / 2, 0, seat_height]
+        parts.append(_create_box_vertices_faces(arm_dims, left_arm_pos))
+        parts.append(_create_box_vertices_faces(arm_dims, right_arm_pos))
+
+        # Large Wheels
+        wheel_radius = 0.3
+        wheel_thickness = 0.02
+        wheel_verts, wheel_faces = _create_cylinder_vertices_faces(
+            wheel_radius, wheel_thickness, 16, [0, 0, 0]
         )
         rot = np.deg2rad(90)
-        rot_mat = np.array([[1, 0, 0], [0, np.cos(rot), -np.sin(rot)], [0, np.sin(rot), np.cos(rot)]])
-        wheel_l_verts = np.dot(wheel_l_verts, rot_mat.T) + np.array([-0.26, 0, 0.3])
-        parts.append((wheel_l_verts, wheel_l_faces))
-        wheel_r_verts, wheel_r_faces = _create_cylinder_vertices_faces(
-            0.3, 0.02, 16, [0, 0, 0]
-        )
-        wheel_r_verts = np.dot(wheel_r_verts, rot_mat.T) + np.array([0.26, 0, 0.3])
-        parts.append((wheel_r_verts, wheel_r_faces))
+        # Rotate around Y-axis to make wheels vertical and parallel to seat depth
+        rot_mat = np.array([
+            [np.cos(rot), 0, np.sin(rot)],
+            [0, 1, 0],
+            [-np.sin(rot), 0, np.cos(rot)]
+        ])
+
+        left_wheel_verts = np.dot(
+            wheel_verts, rot_mat.T) + np.array([-seat_width / 2 - wheel_thickness, 0, wheel_radius])
+        parts.append((left_wheel_verts, wheel_faces))
+        
+        right_wheel_verts = np.dot(
+            wheel_verts, rot_mat.T) + np.array([seat_width / 2, 0, wheel_radius])
+        parts.append((right_wheel_verts, wheel_faces))
+
+        # Footrests
+        footrest_dims = [0.15, 0.2, 0.02]
+        footrest_y = seat_depth / 2 + 0.1
+        footrest_z = 0.15
+        left_foot_pos = [-seat_width / 4, footrest_y, footrest_z]
+        right_foot_pos = [seat_width / 4, footrest_y, footrest_z]
+        parts.append(_create_box_vertices_faces(footrest_dims, left_foot_pos))
+        parts.append(_create_box_vertices_faces(footrest_dims, right_foot_pos))
 
         vertices, faces = _create_composite_object(parts)
         super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
@@ -1345,12 +1805,35 @@ class WeighingScale(Furniture):
 
 class MRIScanner(Furniture):
     """
-    Represents an MRI scanner.
+    Represents an MRI scanner with a cylindrical gantry, patient bed, and base.
     """
     def __init__(self, name, position, rotation_z=0, material_name="plastic"):
-        dims = [1.5, 2.5, 1.8]  # Simplified as a large box
-        verts, faces = _create_box_vertices_faces(dims, center_bottom_pos=[0, 0, 0])
-        super().__init__(name, position, verts.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
+        parts = []
+        # Gantry (Cylindrical Ring)
+        gantry_verts, gantry_faces = _create_ring_vertices_faces(
+            outer_radius=1.0, inner_radius=0.4, height=0.8, resolution=32, center_bottom_pos=[0, -0.4, 0]
+        )
+        # Rotate gantry to be upright
+        angle = np.deg2rad(90)
+        rotation_matrix_x = np.array([
+            [1, 0, 0],
+            [0, np.cos(angle), -np.sin(angle)],
+            [0, np.sin(angle), np.cos(angle)]
+        ])
+        gantry_verts = np.dot(gantry_verts, rotation_matrix_x.T)
+        gantry_verts += np.array([0, 0, 1.0])  # Lift it up
+        parts.append((gantry_verts, gantry_faces))
+        # Base for the patient bed
+        bed_base_dims = [0.5, 1.5, 0.7]  # width, depth, height
+        bed_base_pos = [0, 0.8, 0]
+        parts.append(_create_box_vertices_faces(bed_base_dims, bed_base_pos))
+        # Patient Bed
+        bed_dims = [0.6, 2.5, 0.1]
+        bed_pos = [0, -0.2, 0.7]  # On top of the base
+        parts.append(_create_box_vertices_faces(bed_dims, bed_pos))
+
+        vertices, faces = _create_composite_object(parts)
+        super().__init__(name, position, vertices.tolist(), faces, get_material(material_name), rotation_z=rotation_z)
 
 
 class Ventilator(Furniture):
