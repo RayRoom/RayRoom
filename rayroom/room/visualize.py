@@ -621,8 +621,20 @@ def save_mesh_viewer(room, obj_filename, html_filename):
     # Escape backticks for JavaScript template literal
     obj_content_js = obj_content.replace('`', '\\`')
 
-    object_names = [w.name for w in room.walls] + [f.name for f in room.furniture] + [r.name for r in room.receivers] + [s.name for s in room.sources]
-    object_names_json = json.dumps(object_names)
+    objects_data = []
+    for w in room.walls:
+        objects_data.append({"name": w.name, "description": w.material.name})
+    for f in room.furniture:
+        objects_data.append({"name": f.name, "description": f.material.name})
+    for r in room.receivers:
+        desc = "Ambisonic Receiver" if isinstance(r, AmbisonicReceiver) else "Mono Receiver"
+        objects_data.append({"name": r.name, "description": desc})
+    for s in room.sources:
+        desc = "Source"
+        if s.directivity != "omnidirectional":
+            desc += f" ({s.directivity})"
+        objects_data.append({"name": s.name, "description": desc})
+    objects_data_json = json.dumps(objects_data)
 
     receivers_data = []
     for r in room.receivers:
@@ -693,6 +705,14 @@ def save_mesh_viewer(room, obj_filename, html_filename):
         }}
         #objectList input {{
             margin-right: 8px;
+        }}
+        .object-label .name {{
+            font-weight: bold;
+        }}
+        .object-label .description {{
+            font-size: 0.9em;
+            color: #555;
+            margin-left: 5px;
         }}
     </style>
 </head>
@@ -883,10 +903,13 @@ def save_mesh_viewer(room, obj_filename, html_filename):
             objectMap[source.name] = sourceGroup;
         }});
 
-        const objectNames = JSON.parse(String.raw`{object_names_json}`);
+        const objectsData = JSON.parse(String.raw`{objects_data_json}`);
         const objectList = document.getElementById('objectList');
 
-        objectNames.forEach(name => {{
+        objectsData.forEach(objData => {{
+            const name = objData.name;
+            const description = objData.description;
+
             const li = document.createElement('li');
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -896,7 +919,18 @@ def save_mesh_viewer(room, obj_filename, html_filename):
             
             const label = document.createElement('label');
             label.htmlFor = `check-${{name}}`;
-            label.textContent = name;
+            label.className = 'object-label';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'name';
+            nameSpan.textContent = name;
+            
+            const descSpan = document.createElement('span');
+            descSpan.className = 'description';
+            descSpan.textContent = ` - ${{description}}`;
+            
+            label.appendChild(nameSpan);
+            label.appendChild(descSpan);
             
             li.appendChild(checkbox);
             li.appendChild(label);

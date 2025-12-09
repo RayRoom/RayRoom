@@ -143,7 +143,15 @@ class Room:
         elif isinstance(materials, dict):
             # fill missing with default
             default = get_material("concrete")
-            mats = {k: materials.get(k, default) for k in ["floor", "ceiling", "front", "back", "left", "right"]}
+            wall_material = materials.get("walls", default)
+            mats = {
+                "floor": materials.get("floor", default),
+                "ceiling": materials.get("ceiling", default),
+                "front": materials.get("front", wall_material),
+                "back": materials.get("back", wall_material),
+                "left": materials.get("left", wall_material),
+                "right": materials.get("right", wall_material),
+            }
         else:
             # Single material
             mats = {k: materials for k in ["floor", "ceiling", "front", "back", "left", "right"]}

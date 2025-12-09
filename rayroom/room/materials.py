@@ -46,6 +46,7 @@ def get_material(name):
     materials = {
         "concrete": Material("Concrete", absorption=0.05, transmission=0.0),
         "brick": Material("Brick", absorption=0.03, transmission=0.0),
+        "carpet": Material("Carpet", absorption=0.7, transmission=0.0, scattering=0.3),
         "glass": Material("Glass", absorption=0.03, transmission=0.1),  # Partial transmission
         "heavy_curtain": Material("Heavy Curtain", absorption=0.6, transmission=0.2),
         "wood": Material("Wood", absorption=0.15, transmission=0.01),
