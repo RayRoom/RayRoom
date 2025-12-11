@@ -159,7 +159,6 @@
     
     <div class="tab-container">
         <div class="tab active" onclick="switchTab('room')">Room</div>
-        <div class="tab" onclick="switchTab('objects')">Library</div>
         <div class="tab" onclick="switchTab('properties')">Properties</div>
     </div>
     
@@ -193,25 +192,12 @@
             <div class="control-group">
                 <label>Export</label>
                 <button onclick="exportRoomJSON()" style="background-color: #27ae60;">Download Room JSON</button>
+                <input type="file" id="load-room-input" accept=".json" style="display: none;" onchange="loadRoomJSON(this)">
+                <button onclick="document.getElementById('load-room-input').click()" style="background-color: #e67e22;">Load Room from JSON</button>
             </div>
         </div>
 
-        <!-- Objects Panel -->
-        <div id="panel-objects" class="panel">
-            <div class="control-group">
-                <label>Category</label>
-                <select id="asset-category" onchange="filterAssets()">
-                    <option value="all">All</option>
-                    <option value="furniture">Furniture</option>
-                    <option value="source">Sources</option>
-                    <option value="receiver">Receivers</option>
-                </select>
-            </div>
-            
-            <div id="asset-list" class="asset-list">
-                <!-- Populated by JS -->
-            </div>
-        </div>
+        <!-- Objects Panel removed from here -->
 
         <!-- Properties Panel -->
         <div id="panel-properties" class="panel">
@@ -242,12 +228,34 @@
 </div>
 
 <div id="sidebar-right">
-    <div id="sidebar-right-header">
-        <span>Scene</span>
+    <!-- Top Half: Library -->
+    <div style="flex: 1; display: flex; flex-direction: column; min-height: 0; border-bottom: 1px solid #ccc;">
+        <div class="sidebar-header" style="padding: 15px; background: #2c3e50; color: white; font-weight: bold;">
+            <span>Library</span>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 15px;">
+             <div class="control-group">
+                <input type="text" id="asset-search" placeholder="Search..." onkeyup="filterAssets()" style="margin-bottom: 10px;">
+                <label>Category</label>
+                <select id="asset-category" onchange="filterAssets()">
+                    <option value="all">All</option>
+                    <option value="furniture">Furniture</option>
+                    <option value="source">Sources</option>
+                    <option value="receiver">Receivers</option>
+                </select>
+            </div>
+            <div id="asset-list" class="asset-list">
+                <!-- Populated by JS -->
+            </div>
+        </div>
     </div>
-    <div id="sidebar-content">
-        <div class="control-group" style="padding: 15px; border: none;">
-            <!-- <label>Placed Objects</label> -->
+
+    <!-- Bottom Half: Scene -->
+    <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+        <div class="sidebar-header" style="padding: 15px; background: #2c3e50; color: white; font-weight: bold;">
+            <span>Scene</span>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 15px;">
             <div id="scene-list" style="display: flex; flex-direction: column; gap: 5px;">
                 <!-- Populated by JS -->
             </div>
@@ -603,18 +611,36 @@ function draw2D() {
              ctx2d.stroke();
         } else {
              // Rectangle for furniture
-             // Scale by zoom
-             const w = (dimX * zoom);
-             const h = (dimY * zoom);
-             // Use a fixed visual size for now or better bounding box
-             const size = 30; 
-             ctx2d.fillRect(-size/2, -size/2, size, size);
-             ctx2d.strokeRect(-size/2, -size/2, size, size);
+             // Calculate bounding box from asset vertices
+             let minX = -0.25, maxX = 0.25;
+             let minY = -0.25, maxY = 0.25;
+
+             if (asset && asset.vertices && asset.vertices.length > 0) {
+                 minX = Infinity; maxX = -Infinity;
+                 minY = Infinity; maxY = -Infinity;
+                 for (const v of asset.vertices) {
+                     if (v[0] < minX) minX = v[0];
+                     if (v[0] > maxX) maxX = v[0];
+                     if (v[1] < minY) minY = v[1];
+                     if (v[1] > maxY) maxY = v[1];
+                 }
+             }
+
+             // Convert to pixels (account for Y flip: World +Y is Screen -Y)
+             // World Top-Left of bbox is (minX, maxY)
+             // Screen Top-Left relative to origin is (minX * zoom, -maxY * zoom)
+             const x = minX * zoom;
+             const y = -maxY * zoom;
+             const w = (maxX - minX) * zoom;
+             const h = (maxY - minY) * zoom;
+
+             ctx2d.fillRect(x, y, w, h);
+             ctx2d.strokeRect(x, y, w, h);
              
              // Direction indicator
              ctx2d.beginPath();
              ctx2d.moveTo(0, 0);
-             ctx2d.lineTo(size/2 + 10, 0); // Forward X
+             ctx2d.lineTo(maxX * zoom + 10, 0); // Forward X
              ctx2d.strokeStyle = 'red';
              ctx2d.lineWidth = 1;
              ctx2d.stroke();
@@ -691,8 +717,43 @@ canvas2d.addEventListener('mousedown', e => {
     // Iterate reverse to hit top objects
     for (let i = state.objects.length - 1; i >= 0; i--) {
         const obj = state.objects[i];
-        const dist = Math.sqrt(Math.pow(obj.x - world.x, 2) + Math.pow(obj.y - world.y, 2));
-        if (dist < hitThreshold) {
+        
+        const asset = ASSET_LIBRARY[obj.class_name];
+        
+        // Calculate object bounds in world space
+        let minX = -0.25, maxX = 0.25;
+        let minY = -0.25, maxY = 0.25;
+
+        if (asset && asset.vertices && asset.vertices.length > 0) {
+             minX = Infinity; maxX = -Infinity;
+             minY = Infinity; maxY = -Infinity;
+             for (const v of asset.vertices) {
+                 if (v[0] < minX) minX = v[0];
+                 if (v[0] > maxX) maxX = v[0];
+                 if (v[1] < minY) minY = v[1];
+                 if (v[1] > maxY) maxY = v[1];
+             }
+        }
+        
+        // Transform mouse point into object local space
+        const dx = world.x - obj.x;
+        const dy = world.y - obj.y;
+        
+        // Rotate point by -rotation (inverse of object rotation)
+        const rotRad = -(obj.rotation || 0) * Math.PI / 180;
+        const localX = dx * Math.cos(rotRad) - dy * Math.sin(rotRad);
+        const localY = dx * Math.sin(rotRad) + dy * Math.cos(rotRad);
+        
+        // Check if point is inside the bounding box
+        // Bounding box is [minX, maxX] x [minY, maxY] centered around 0 in local space if geometry is centered
+        // Actually geometry vertices are relative to object origin (obj.x, obj.y, obj.z)
+        // So minX/maxX are local offsets.
+        
+        // Add a bit of padding for easier selection
+        const padding = 0.1; 
+        
+        if (localX >= minX - padding && localX <= maxX + padding &&
+            localY >= minY - padding && localY <= maxY + padding) {
             hitId = obj.id;
             break;
         }
@@ -770,9 +831,12 @@ window.switchTab = function(tabName) {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     
     // Simple logic based on order or name
-    const tabs = ['room', 'objects', 'properties'];
-    document.querySelectorAll('.tab')[tabs.indexOf(tabName)].classList.add('active');
-    document.getElementById(`panel-${tabName}`).classList.add('active');
+    const tabs = ['room', 'properties'];
+    const index = tabs.indexOf(tabName);
+    if (index >= 0) {
+        document.querySelectorAll('.tab')[index].classList.add('active');
+        document.getElementById(`panel-${tabName}`).classList.add('active');
+    }
 };
 
 window.setViewMode = function(mode) {
@@ -847,21 +911,41 @@ window.cancelDrawing = function() {
 
 window.addObject = function(className) {
     const asset = ASSET_LIBRARY[className];
+    
+    // Calculate default Z so the object sits on the floor (bottom at z=0)
+    let initialZ = 0;
+    
+    if (asset.vertices && asset.vertices.length > 0) {
+        let minZ = Infinity;
+        for(let i = 0; i < asset.vertices.length; i++) {
+            const z = asset.vertices[i][2];
+            if (z < minZ) minZ = z;
+        }
+        
+        // If the object's geometry goes below 0, shift it up
+        if (minZ !== Infinity && minZ < 0) {
+            initialZ = -minZ;
+        }
+    } else {
+        // Fallback for objects without geometry (default box is 0.5 height, centered)
+        initialZ = 0.25;
+    }
+
     const newObj = {
         id: Date.now(),
         class_name: className,
         type: asset.type || 'furniture',
         x: 0, 
         y: 0,
-        z: 0, // Default to floor
+        z: parseFloat(initialZ.toFixed(3)), 
         rotation: 0
     };
     
-    // Auto-adjust Z for wall-mounted items?
-    // For now everything is on floor (z=0) unless manually moved.
-    
     state.objects.push(newObj);
     updateSceneList();
+    if (state.viewMode === '3d') {
+        update3DScene();
+    }
     selectObject(newObj.id);
     switchTab('properties');
 };
@@ -869,12 +953,20 @@ window.addObject = function(className) {
 function selectObject(id) {
     state.selectedObjectId = id;
     updatePropertiesPanel();
+    
     // Update Scene List selection visual
-    document.querySelectorAll('.scene-item').forEach(el => el.classList.remove('selected'));
-    if (id) {
-        const el = document.getElementById(`scene-item-${id}`);
-        if (el) el.classList.add('selected');
-    }
+    state.objects.forEach(obj => {
+        const el = document.getElementById(`scene-item-${obj.id}`);
+        if (el) {
+            if (obj.id === id) {
+                el.style.backgroundColor = '#eaf6ff';
+                el.style.borderColor = '#3498db';
+            } else {
+                el.style.backgroundColor = 'white';
+                el.style.borderColor = '#eee';
+            }
+        }
+    });
 }
 
 function updatePropertiesPanel() {
@@ -909,6 +1001,13 @@ function updatePropertiesPanel() {
             <input type="number" step="15" value="${obj.rotation}" onchange="updateObjProp('rotation', this.value)">
         </div>
         <div class="control-group">
+            <label>Snap Vertical</label>
+            <div style="display: flex; gap: 5px;">
+                <button class="secondary" onclick="snapToFloor()">⬇ Floor</button>
+                <button class="secondary" onclick="snapToCeiling()">⬆ Ceiling</button>
+            </div>
+        </div>
+        <div class="control-group">
             <button class="danger" onclick="deleteSelected()">Delete Object</button>
         </div>
     `;
@@ -918,6 +1017,9 @@ window.updateObjProp = function(prop, val) {
     const obj = state.objects.find(o => o.id === state.selectedObjectId);
     if (obj) {
         obj[prop] = parseFloat(val);
+        if (state.viewMode === '3d') {
+            update3DScene();
+        }
     }
 };
 
@@ -925,6 +1027,62 @@ window.deleteSelected = function() {
     state.objects = state.objects.filter(o => o.id !== state.selectedObjectId);
     selectObject(null);
     updateSceneList();
+    if (state.viewMode === '3d') {
+        update3DScene();
+    }
+};
+
+window.snapToFloor = function() {
+    const obj = state.objects.find(o => o.id === state.selectedObjectId);
+    if (!obj) return;
+    const asset = ASSET_LIBRARY[obj.class_name];
+    
+    let minZ = 0;
+    if (asset && asset.vertices && asset.vertices.length > 0) {
+        minZ = Infinity;
+        for(let i = 0; i < asset.vertices.length; i++) {
+            if (asset.vertices[i][2] < minZ) minZ = asset.vertices[i][2];
+        }
+    } else {
+        // Fallback for objects without geometry (default box is 0.5 height, centered at 0,0,0)
+        // so minZ is -0.25
+        minZ = -0.25;
+    }
+    
+    if (minZ === Infinity) minZ = 0;
+    
+    // Position so world minZ = 0 => obj.z + minZ = 0 => obj.z = -minZ
+    obj.z = -minZ;
+    obj.z = parseFloat(obj.z.toFixed(3));
+    
+    updatePropertiesPanel();
+    if (state.viewMode === '3d') update3DScene();
+};
+
+window.snapToCeiling = function() {
+    const obj = state.objects.find(o => o.id === state.selectedObjectId);
+    if (!obj) return;
+    const asset = ASSET_LIBRARY[obj.class_name];
+    
+    let maxZ = 0;
+    if (asset && asset.vertices && asset.vertices.length > 0) {
+        maxZ = -Infinity;
+        for(let i = 0; i < asset.vertices.length; i++) {
+            if (asset.vertices[i][2] > maxZ) maxZ = asset.vertices[i][2];
+        }
+    } else {
+        // Fallback box maxZ is 0.25
+        maxZ = 0.25;
+    }
+    
+    if (maxZ === -Infinity) maxZ = 0;
+    
+    // Position so world maxZ = roomHeight => obj.z + maxZ = roomHeight => obj.z = roomHeight - maxZ
+    obj.z = state.room.height - maxZ;
+    obj.z = parseFloat(obj.z.toFixed(3));
+    
+    updatePropertiesPanel();
+    if (state.viewMode === '3d') update3DScene();
 };
 
 window.calculateRoomStats = function() {
@@ -995,15 +1153,21 @@ window.populateAssetList = function() {
     const list = document.getElementById('asset-list');
     list.innerHTML = '';
     const category = document.getElementById('asset-category').value;
+    const searchTerm = document.getElementById('asset-search').value.toLowerCase();
     
     Object.keys(ASSET_LIBRARY).sort().forEach(key => {
         const asset = ASSET_LIBRARY[key];
         
-        // Filter
+        // Filter by Category
         if (category !== 'all') {
              if (category === 'furniture' && asset.type !== 'furniture') return;
              if (category === 'source' && asset.type !== 'source') return;
              if (category === 'receiver' && asset.type !== 'receiver') return;
+        }
+
+        // Filter by Search Term
+        if (searchTerm && !key.toLowerCase().includes(searchTerm)) {
+            return;
         }
 
         const item = document.createElement('div');
@@ -1033,6 +1197,7 @@ window.exportRoomJSON = function() {
         room_dims: state.room.height, // Just height for polygon room, or we can infer box
         walls: state.room.walls,
         objects: state.objects.map(o => ({
+            id: o.id,
             class: o.class_name,
             position: [o.x, o.y, o.z],
             rotation: o.rotation
@@ -1046,6 +1211,102 @@ window.exportRoomJSON = function() {
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
+};
+
+window.loadRoomJSON = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // 1. Update Room
+            if (data.room_dims !== undefined) {
+                state.room.height = parseFloat(data.room_dims);
+                document.getElementById('room-height').value = state.room.height;
+            }
+            if (data.walls && Array.isArray(data.walls) && data.walls.length >= 3) {
+                state.room.walls = data.walls;
+            }
+            
+            // 2. Update Objects
+            state.objects = [];
+            if (data.objects && Array.isArray(data.objects)) {
+                data.objects.forEach(objData => {
+                    const className = objData.class;
+                    const asset = ASSET_LIBRARY[className];
+                    
+                    // Fallback if asset not found in current library?
+                    // We'll skip or use placeholders. For now assume it exists.
+                    if (!asset) {
+                        console.warn(`Asset '${className}' not found in library.`);
+                        return;
+                    }
+
+                    const pos = objData.position || [0, 0, 0];
+                    
+                    const newObj = {
+                        id: objData.id || Date.now() + Math.random(), // Ensure ID
+                        class_name: className,
+                        type: asset.type || 'furniture',
+                        x: pos[0],
+                        y: pos[1],
+                        z: pos[2],
+                        rotation: objData.rotation || 0
+                    };
+                    state.objects.push(newObj);
+                });
+            }
+            
+            // 3. Reset State & UI
+            selectObject(null);
+            calculateRoomStats();
+            updateSceneList();
+            
+            // Adjust camera to fit room
+            if (state.room.walls.length > 0) {
+                // Calculate bounding box of walls
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                state.room.walls.forEach(p => {
+                    if (p.x < minX) minX = p.x;
+                    if (p.x > maxX) maxX = p.x;
+                    if (p.y < minY) minY = p.y;
+                    if (p.y > maxY) maxY = p.y;
+                });
+                
+                const roomW = maxX - minX;
+                const roomH = maxY - minY;
+                
+                state.camera2d.x = -(minX + roomW/2) * state.camera2d.zoom;
+                state.camera2d.y = (minY + roomH/2) * state.camera2d.zoom; // Inverted Y logic in draw2D
+                // Actually camera2d is offset in pixels. draw2D: cx = w/2 + state.camera2d.x
+                // toScreen: x = cx + x*zoom
+                // We want center of room (0,0 generally) to be at center of screen.
+                // If room is centered at 0,0, camera2d.x = 0 is fine.
+                // If room is offset, we need to pan.
+                
+                // Let's just center on 0,0 for now as walls are usually centered
+                state.camera2d.x = 0;
+                state.camera2d.y = 0;
+            }
+
+            if (state.viewMode === '3d') {
+                update3DScene();
+            }
+            
+            // Clear input so same file can be selected again
+            input.value = '';
+            
+            alert("Room loaded successfully!");
+
+        } catch (err) {
+            console.error(err);
+            alert("Error parsing JSON file.");
+        }
+    };
+    reader.readAsText(file);
 };
 
 

@@ -189,6 +189,7 @@ class Furniture(Object3D):
         :type rotation_z: float, optional
         """
         super().__init__(name, position, material)
+        self.rotation_z = rotation_z
         vertices = np.array(vertices)
 
         # Apply rotation around Z-axis if specified
@@ -2256,7 +2257,7 @@ class ComputerStation(Furniture):
         desk = Desk("desk_part", [0, 0, 0], 0, material_name)
         parts.append((desk.vertices, desk.faces))
         # Monitor
-        monitor = LCDMonitor("monitor_part", [0, 0, 0.75], 0) # 0.75 is desk height
+        monitor = LCDMonitor("monitor_part", [0, 0, 0.75], 0)  # 0.75 is desk height
         parts.append((monitor.vertices, monitor.faces))
         # Keyboard
         keyboard = Keyboard("keyboard_part", [0, 0.2, 0.75], 0)

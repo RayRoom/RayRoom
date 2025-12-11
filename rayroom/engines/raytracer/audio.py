@@ -47,18 +47,18 @@ class RaytracingRenderer:
             room = rt.room.ShoeBox([8, 6, 3])
             source = room.add_source([4, 3, 1.5])
             receiver = room.add_receiver([2, 2, 1.5])
-            
+
             # Initialize the renderer
             renderer = rt.engines.raytracer.RaytracingRenderer(room)
-            
+
             # Assign an audio signal to the source
             sample_rate = 44100
             source_audio = np.random.randn(sample_rate * 2)  # 2s of white noise
             renderer.set_source_audio(source, source_audio)
-            
+
             # Run the rendering process
             outputs, rirs = renderer.render(n_rays=10000, rir_duration=1.0)
-            
+
             # `outputs` contains the rendered audio for the receiver
             # `rirs` contains the generated RIR for the receiver
 
