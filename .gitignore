@@ -14,3 +14,13 @@ docs/_build/
 
 # Allow wav files from docs/_static
 !docs/_static/*.wav
+rayroom/__pycache__/__init__.cpython-314.pyc
+rayroom/__pycache__/audio.cpython-314.pyc
+rayroom/__pycache__/core.cpython-314.pyc
+rayroom/__pycache__/materials.cpython-314.pyc
+rayroom/__pycache__/objects.cpython-314.pyc
+rayroom/__pycache__/physics.cpython-314.pyc
+rayroom/__pycache__/room.cpython-314.pyc
+rayroom/__pycache__/visualize.cpython-314.pyc
+.DS_Store
+docs/_build/.DS_Store

@@ -159,7 +159,6 @@
     
     <div class="tab-container">
         <div class="tab active" onclick="switchTab('room')">Room</div>
-        <div class="tab" onclick="switchTab('objects')">Library</div>
         <div class="tab" onclick="switchTab('properties')">Properties</div>
     </div>
     
@@ -196,22 +195,7 @@
             </div>
         </div>
 
-        <!-- Objects Panel -->
-        <div id="panel-objects" class="panel">
-            <div class="control-group">
-                <label>Category</label>
-                <select id="asset-category" onchange="filterAssets()">
-                    <option value="all">All</option>
-                    <option value="furniture">Furniture</option>
-                    <option value="source">Sources</option>
-                    <option value="receiver">Receivers</option>
-                </select>
-            </div>
-            
-            <div id="asset-list" class="asset-list">
-                <!-- Populated by JS -->
-            </div>
-        </div>
+        <!-- Objects Panel removed from here -->
 
         <!-- Properties Panel -->
         <div id="panel-properties" class="panel">
@@ -242,12 +226,33 @@
 </div>
 
 <div id="sidebar-right">
-    <div id="sidebar-right-header">
-        <span>Scene</span>
+    <!-- Top Half: Library -->
+    <div style="flex: 1; display: flex; flex-direction: column; min-height: 0; border-bottom: 1px solid #ccc;">
+        <div class="sidebar-header" style="padding: 15px; background: #2c3e50; color: white; font-weight: bold;">
+            <span>Library</span>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 15px;">
+             <div class="control-group">
+                <label>Category</label>
+                <select id="asset-category" onchange="filterAssets()">
+                    <option value="all">All</option>
+                    <option value="furniture">Furniture</option>
+                    <option value="source">Sources</option>
+                    <option value="receiver">Receivers</option>
+                </select>
+            </div>
+            <div id="asset-list" class="asset-list">
+                <!-- Populated by JS -->
+            </div>
+        </div>
     </div>
-    <div id="sidebar-content">
-        <div class="control-group" style="padding: 15px; border: none;">
-            <!-- <label>Placed Objects</label> -->
+
+    <!-- Bottom Half: Scene -->
+    <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+        <div class="sidebar-header" style="padding: 15px; background: #2c3e50; color: white; font-weight: bold;">
+            <span>Scene</span>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 15px;">
             <div id="scene-list" style="display: flex; flex-direction: column; gap: 5px;">
                 <!-- Populated by JS -->
             </div>
@@ -770,9 +775,12 @@ window.switchTab = function(tabName) {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     
     // Simple logic based on order or name
-    const tabs = ['room', 'objects', 'properties'];
-    document.querySelectorAll('.tab')[tabs.indexOf(tabName)].classList.add('active');
-    document.getElementById(`panel-${tabName}`).classList.add('active');
+    const tabs = ['room', 'properties'];
+    const index = tabs.indexOf(tabName);
+    if (index >= 0) {
+        document.querySelectorAll('.tab')[index].classList.add('active');
+        document.getElementById(`panel-${tabName}`).classList.add('active');
+    }
 };
 
 window.setViewMode = function(mode) {
@@ -847,18 +855,35 @@ window.cancelDrawing = function() {
 
 window.addObject = function(className) {
     const asset = ASSET_LIBRARY[className];
+    
+    // Calculate default Z so the object sits on the floor (bottom at z=0)
+    let initialZ = 0;
+    
+    if (asset.vertices && asset.vertices.length > 0) {
+        let minZ = Infinity;
+        for(let i = 0; i < asset.vertices.length; i++) {
+            const z = asset.vertices[i][2];
+            if (z < minZ) minZ = z;
+        }
+        
+        // If the object's geometry goes below 0, shift it up
+        if (minZ !== Infinity && minZ < 0) {
+            initialZ = -minZ;
+        }
+    } else {
+        // Fallback for objects without geometry (default box is 0.5 height, centered)
+        initialZ = 0.25;
+    }
+
     const newObj = {
         id: Date.now(),
         class_name: className,
         type: asset.type || 'furniture',
         x: 0, 
         y: 0,
-        z: 0, // Default to floor
+        z: parseFloat(initialZ.toFixed(3)), 
         rotation: 0
     };
-    
-    // Auto-adjust Z for wall-mounted items?
-    // For now everything is on floor (z=0) unless manually moved.
     
     state.objects.push(newObj);
     updateSceneList();
