@@ -608,18 +608,36 @@ function draw2D() {
              ctx2d.stroke();
         } else {
              // Rectangle for furniture
-             // Scale by zoom
-             const w = (dimX * zoom);
-             const h = (dimY * zoom);
-             // Use a fixed visual size for now or better bounding box
-             const size = 30; 
-             ctx2d.fillRect(-size/2, -size/2, size, size);
-             ctx2d.strokeRect(-size/2, -size/2, size, size);
+             // Calculate bounding box from asset vertices
+             let minX = -0.25, maxX = 0.25;
+             let minY = -0.25, maxY = 0.25;
+
+             if (asset && asset.vertices && asset.vertices.length > 0) {
+                 minX = Infinity; maxX = -Infinity;
+                 minY = Infinity; maxY = -Infinity;
+                 for (const v of asset.vertices) {
+                     if (v[0] < minX) minX = v[0];
+                     if (v[0] > maxX) maxX = v[0];
+                     if (v[1] < minY) minY = v[1];
+                     if (v[1] > maxY) maxY = v[1];
+                 }
+             }
+
+             // Convert to pixels (account for Y flip: World +Y is Screen -Y)
+             // World Top-Left of bbox is (minX, maxY)
+             // Screen Top-Left relative to origin is (minX * zoom, -maxY * zoom)
+             const x = minX * zoom;
+             const y = -maxY * zoom;
+             const w = (maxX - minX) * zoom;
+             const h = (maxY - minY) * zoom;
+
+             ctx2d.fillRect(x, y, w, h);
+             ctx2d.strokeRect(x, y, w, h);
              
              // Direction indicator
              ctx2d.beginPath();
              ctx2d.moveTo(0, 0);
-             ctx2d.lineTo(size/2 + 10, 0); // Forward X
+             ctx2d.lineTo(maxX * zoom + 10, 0); // Forward X
              ctx2d.strokeStyle = 'red';
              ctx2d.lineWidth = 1;
              ctx2d.stroke();
@@ -696,8 +714,43 @@ canvas2d.addEventListener('mousedown', e => {
     // Iterate reverse to hit top objects
     for (let i = state.objects.length - 1; i >= 0; i--) {
         const obj = state.objects[i];
-        const dist = Math.sqrt(Math.pow(obj.x - world.x, 2) + Math.pow(obj.y - world.y, 2));
-        if (dist < hitThreshold) {
+        
+        const asset = ASSET_LIBRARY[obj.class_name];
+        
+        // Calculate object bounds in world space
+        let minX = -0.25, maxX = 0.25;
+        let minY = -0.25, maxY = 0.25;
+
+        if (asset && asset.vertices && asset.vertices.length > 0) {
+             minX = Infinity; maxX = -Infinity;
+             minY = Infinity; maxY = -Infinity;
+             for (const v of asset.vertices) {
+                 if (v[0] < minX) minX = v[0];
+                 if (v[0] > maxX) maxX = v[0];
+                 if (v[1] < minY) minY = v[1];
+                 if (v[1] > maxY) maxY = v[1];
+             }
+        }
+        
+        // Transform mouse point into object local space
+        const dx = world.x - obj.x;
+        const dy = world.y - obj.y;
+        
+        // Rotate point by -rotation (inverse of object rotation)
+        const rotRad = -(obj.rotation || 0) * Math.PI / 180;
+        const localX = dx * Math.cos(rotRad) - dy * Math.sin(rotRad);
+        const localY = dx * Math.sin(rotRad) + dy * Math.cos(rotRad);
+        
+        // Check if point is inside the bounding box
+        // Bounding box is [minX, maxX] x [minY, maxY] centered around 0 in local space if geometry is centered
+        // Actually geometry vertices are relative to object origin (obj.x, obj.y, obj.z)
+        // So minX/maxX are local offsets.
+        
+        // Add a bit of padding for easier selection
+        const padding = 0.1; 
+        
+        if (localX >= minX - padding && localX <= maxX + padding &&
+            localY >= minY - padding && localY <= maxY + padding) {
             hitId = obj.id;
             break;
         }
@@ -897,12 +950,20 @@ window.addObject = function(className) {
 function selectObject(id) {
     state.selectedObjectId = id;
     updatePropertiesPanel();
+    
     // Update Scene List selection visual
-    document.querySelectorAll('.scene-item').forEach(el => el.classList.remove('selected'));
-    if (id) {
-        const el = document.getElementById(`scene-item-${id}`);
-        if (el) el.classList.add('selected');
-    }
+    state.objects.forEach(obj => {
+        const el = document.getElementById(`scene-item-${obj.id}`);
+        if (el) {
+            if (obj.id === id) {
+                el.style.backgroundColor = '#eaf6ff';
+                el.style.borderColor = '#3498db';
+            } else {
+                el.style.backgroundColor = 'white';
+                el.style.borderColor = '#eee';
+            }
+        }
+    });
 }
 
 function updatePropertiesPanel() {
