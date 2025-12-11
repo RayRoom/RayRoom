@@ -887,6 +887,9 @@ window.addObject = function(className) {
     
     state.objects.push(newObj);
     updateSceneList();
+    if (state.viewMode === '3d') {
+        update3DScene();
+    }
     selectObject(newObj.id);
     switchTab('properties');
 };
@@ -934,6 +937,13 @@ function updatePropertiesPanel() {
             <input type="number" step="15" value="${obj.rotation}" onchange="updateObjProp('rotation', this.value)">
         </div>
         <div class="control-group">
+            <label>Snap Vertical</label>
+            <div style="display: flex; gap: 5px;">
+                <button class="secondary" onclick="snapToFloor()">⬇ Floor</button>
+                <button class="secondary" onclick="snapToCeiling()">⬆ Ceiling</button>
+            </div>
+        </div>
+        <div class="control-group">
             <button class="danger" onclick="deleteSelected()">Delete Object</button>
         </div>
     `;
@@ -943,6 +953,9 @@ window.updateObjProp = function(prop, val) {
     const obj = state.objects.find(o => o.id === state.selectedObjectId);
     if (obj) {
         obj[prop] = parseFloat(val);
+        if (state.viewMode === '3d') {
+            update3DScene();
+        }
     }
 };
 
@@ -950,6 +963,62 @@ window.deleteSelected = function() {
     state.objects = state.objects.filter(o => o.id !== state.selectedObjectId);
     selectObject(null);
     updateSceneList();
+    if (state.viewMode === '3d') {
+        update3DScene();
+    }
+};
+
+window.snapToFloor = function() {
+    const obj = state.objects.find(o => o.id === state.selectedObjectId);
+    if (!obj) return;
+    const asset = ASSET_LIBRARY[obj.class_name];
+    
+    let minZ = 0;
+    if (asset && asset.vertices && asset.vertices.length > 0) {
+        minZ = Infinity;
+        for(let i = 0; i < asset.vertices.length; i++) {
+            if (asset.vertices[i][2] < minZ) minZ = asset.vertices[i][2];
+        }
+    } else {
+        // Fallback for objects without geometry (default box is 0.5 height, centered at 0,0,0)
+        // so minZ is -0.25
+        minZ = -0.25;
+    }
+    
+    if (minZ === Infinity) minZ = 0;
+    
+    // Position so world minZ = 0 => obj.z + minZ = 0 => obj.z = -minZ
+    obj.z = -minZ;
+    obj.z = parseFloat(obj.z.toFixed(3));
+    
+    updatePropertiesPanel();
+    if (state.viewMode === '3d') update3DScene();
+};
+
+window.snapToCeiling = function() {
+    const obj = state.objects.find(o => o.id === state.selectedObjectId);
+    if (!obj) return;
+    const asset = ASSET_LIBRARY[obj.class_name];
+    
+    let maxZ = 0;
+    if (asset && asset.vertices && asset.vertices.length > 0) {
+        maxZ = -Infinity;
+        for(let i = 0; i < asset.vertices.length; i++) {
+            if (asset.vertices[i][2] > maxZ) maxZ = asset.vertices[i][2];
+        }
+    } else {
+        // Fallback box maxZ is 0.25
+        maxZ = 0.25;
+    }
+    
+    if (maxZ === -Infinity) maxZ = 0;
+    
+    // Position so world maxZ = roomHeight => obj.z + maxZ = roomHeight => obj.z = roomHeight - maxZ
+    obj.z = state.room.height - maxZ;
+    obj.z = parseFloat(obj.z.toFixed(3));
+    
+    updatePropertiesPanel();
+    if (state.viewMode === '3d') update3DScene();
 };
 
 window.calculateRoomStats = function() {
