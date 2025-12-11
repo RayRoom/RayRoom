@@ -386,10 +386,16 @@ function update3DScene() {
         const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
         // Floor
         const floorGeom = new THREE.ShapeGeometry(shape);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
         const floorMesh = new THREE.Mesh(floorGeom, floorMat);
         floorMesh.userData.isRoomObject = true;
         floorMesh.receiveShadow = true;
+        
+        // Add edges to floor
+        const floorEdges = new THREE.EdgesGeometry(floorGeom);
+        const floorEdgeLines = new THREE.LineSegments(floorEdges, new THREE.LineBasicMaterial({ color: 0x333333 }));
+        floorMesh.add(floorEdgeLines);
+        
         scene.add(floorMesh);
 
         // Walls (Wireframe or Transparent)
@@ -419,6 +425,11 @@ function update3DScene() {
             wall.rotation.order = 'ZYX'; // Important: Rotate Z (heading) first, then X (stand up)
             wall.rotation.z = angle;
             wall.rotation.x = Math.PI / 2; // Stand up
+            
+            // Add edges to wall
+            const wallEdges = new THREE.EdgesGeometry(wallGeom);
+            const wallEdgeLines = new THREE.LineSegments(wallEdges, new THREE.LineBasicMaterial({ color: 0x333333 }));
+            wall.add(wallEdgeLines);
             
             wall.userData.isRoomObject = true;
             scene.add(wall);
@@ -462,20 +473,33 @@ function update3DScene() {
             geometry.setIndex(indices);
             geometry.computeVertexNormals();
             
+            // let color = 0xE5E5E5; // Default gray
+            // let color = 0xcccccc; // Default gray
             let color = 0x3498db; // Default blue
             if (obj.type === 'source') color = 0xe74c3c;
             if (obj.type === 'receiver') color = 0x2ecc71;
             if (obj.class_name.includes("Chair")) color = 0xd35400;
+            if (obj.class_name.includes("Person")) color = 0x2ecc71;
             if (obj.class_name.includes("Table")) color = 0x8e44ad;
             
-            const material = new THREE.MeshStandardMaterial({ color: color });
+            const material = new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.3 });
             mesh = new THREE.Mesh(geometry, material);
+            
+            // Add edges to mesh
+            const edges = new THREE.EdgesGeometry(geometry);
+            const edgeLines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333 }));
+            mesh.add(edgeLines);
             
         } else {
             // Fallback box
             const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-            const material = new THREE.MeshStandardMaterial({ color: 0x999999 });
+            const material = new THREE.MeshStandardMaterial({ color: 0x999999, transparent: true, opacity: 0.3 });
             mesh = new THREE.Mesh(geometry, material);
+            
+            // Add edges to fallback box
+            const edges = new THREE.EdgesGeometry(geometry);
+            const edgeLines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333 }));
+            mesh.add(edgeLines);
         }
         
         mesh.position.set(obj.x, obj.y, obj.z);
@@ -1299,7 +1323,7 @@ window.loadRoomJSON = function(input) {
             // Clear input so same file can be selected again
             input.value = '';
             
-            alert("Room loaded successfully!");
+            // alert("Room loaded successfully!");
 
         } catch (err) {
             console.error(err);
