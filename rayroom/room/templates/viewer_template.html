@@ -51,6 +51,21 @@
             color: #555;
             margin-left: 5px;
         }
+        #camera-info {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #ccc;
+        }
+        #camera-info h3 {
+            margin-top: 0;
+            font-size: 1em;
+            color: #333;
+        }
+        #camera-info p {
+            font-size: 0.9em;
+            margin: 5px 0 0;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -73,6 +88,12 @@
             <label for="furnitureToggle">Show Furniture</label>
         </div>
         <ul id="objectList"></ul>
+
+        <div id="camera-info">
+            <h3>Camera Info</h3>
+            <p id="camera-position">Position: (0.00, 0.00, 0.00)</p>
+            <p id="camera-rotation">Rotation: (0.00, 0.00, 0.00)</p>
+        </div>
     </div>
 
     <script type="importmap">
@@ -370,10 +391,17 @@
         setVerticesVisibility(verticesToggle.checked);
         setFurnitureVisibility(furnitureToggle.checked);
         
+        const cameraPositionEl = document.getElementById('camera-position');
+        const cameraRotationEl = document.getElementById('camera-rotation');
+        
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
             renderer.render(scene, camera);
+
+            // Update camera info
+            cameraPositionEl.textContent = `Position: (${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)})`;
+            cameraRotationEl.textContent = `Rotation: (${(camera.rotation.x * 180 / Math.PI).toFixed(2)}, ${(camera.rotation.y * 180 / Math.PI).toFixed(2)}, ${(camera.rotation.z * 180 / Math.PI).toFixed(2)})`;
         }
         animate();
 

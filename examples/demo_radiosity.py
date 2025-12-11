@@ -5,7 +5,7 @@ import argparse
 from rayroom import RadiosityRenderer
 from rayroom.analytics.performance import PerformanceMonitor
 from rayroom.effects import presets
-from rayroom.room.database import DemoRoom, TestBenchRoom
+from rayroom.room.database import DemoRoom, TestBenchRoom, MedicalRoom8M
 from demo_utils import (
     generate_layouts,
     save_room_mesh,
@@ -22,7 +22,8 @@ def main(mic_type='mono', output_dir='outputs', effects=None,
          save_psychoacoustics_flag=False, save_mesh_flag=True):
     # 1. Define Room
     # room, sources, mic = TestBenchRoom(mic_type=mic_type).create_room()
-    room, sources, mic = DemoRoom(mic_type=mic_type).create_room()
+    # room, sources, mic = DemoRoom(mic_type=mic_type).create_room()
+    room, sources, mic = MedicalRoom8M(mic_type=mic_type).create_room()
     src1 = sources["src1"]
     src2 = sources["src2"]
     src_bg = sources["src_bg"]

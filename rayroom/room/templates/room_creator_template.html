@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RayRoom Creator</title>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; display: flex; height: 100vh; background-color: #f0f0f0; }
+        
+        /* Sidebar */
+        #sidebar {
+            width: 320px;
+            background: #fff;
+            border-right: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        #sidebar-right {
+            width: 250px;
+            background: #fff;
+            border-left: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+        
+        #sidebar-header, #sidebar-right-header {
+            padding: 15px;
+            background: #2c3e50;
+            color: white;
+            font-size: 1.2em;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tab-container {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            background: #f9f9f9;
+            border-bottom: 3px solid transparent;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        
+        .tab.active {
+            background: #fff;
+            border-bottom: 3px solid #3498db;
+            color: #3498db;
+        }
+        
+        #sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        
+        .panel { display: none; }
+        .panel.active { display: block; }
+        
+        /* Controls */
+        .control-group { margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .control-group:last-child { border-bottom: none; }
+        .control-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9em; color: #555; }
+        .control-group input[type="text"], 
+        .control-group input[type="number"],
+        .control-group select { 
+            width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; 
+        }
+        .control-group button {
+            width: 100%; padding: 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 5px; font-weight: 500;
+        }
+        .control-group button:hover { background: #2980b9; }
+        .control-group button.secondary { background: #95a5a6; }
+        .control-group button.secondary:hover { background: #7f8c8d; }
+        .control-group button.danger { background: #e74c3c; }
+        .control-group button.danger:hover { background: #c0392b; }
+
+        /* Asset List */
+        .asset-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .asset-item {
+            background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; padding: 10px; cursor: pointer; text-align: center; font-size: 0.85em; transition: all 0.2s;
+        }
+        .asset-item:hover { border-color: #3498db; background: #eaf6ff; }
+        .asset-item .icon { font-size: 20px; margin-bottom: 5px; display: block; }
+
+        /* Main View */
+        #main-view {
+            flex: 1;
+            position: relative;
+            background: #e0e0e0;
+        }
+        
+        #view-controls {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 5px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 5px;
+            z-index: 5;
+        }
+        
+        .view-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .view-btn.active { background: #3498db; color: white; }
+
+        canvas#canvas-2d { width: 100%; height: 100%; display: block; cursor: crosshair; }
+        #canvas-3d-container { width: 100%; height: 100%; display: none; }
+        
+        /* Floating toolbar for polygon drawing */
+        #draw-toolbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+            gap: 10px;
+        }
+
+        .helper-text { font-size: 0.8em; color: #888; margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div id="sidebar-header">
+        <span>RayRoom Creator</span>
+        <span style="font-size: 0.6em; opacity: 0.7;">v1.0</span>
+    </div>
+    
+    <div class="tab-container">
+        <div class="tab active" onclick="switchTab('room')">Room</div>
+        <div class="tab" onclick="switchTab('objects')">Library</div>
+        <div class="tab" onclick="switchTab('properties')">Properties</div>
+    </div>
+    
+    <div id="sidebar-content">
+        <!-- Room Panel -->
+        <div id="panel-room" class="panel active">
+            <div class="control-group">
+                <label>Room Stats</label>
+                <div id="room-stats" style="font-size: 0.9em; color: #555;">
+                    Area: 0.00 m²<br>
+                    Volume: 0.00 m³
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Room Height (m)</label>
+                <input type="number" id="room-height" value="3.0" step="0.1" onchange="updateRoomHeight()">
+            </div>
+            
+            <div class="control-group">
+                <label>Template</label>
+                <button onclick="createShoebox(4, 5)">Create Shoebox (4m x 5m)</button>
+                <button onclick="createShoebox(6, 8)">Create Shoebox (6m x 8m)</button>
+            </div>
+
+            <div class="control-group">
+                <label>Custom Shape</label>
+                <button onclick="startDrawing()" id="btn-draw-poly">Draw Polygon Walls</button>
+                <p class="helper-text">Click "Draw", then click points on grid. Double click to finish.</p>
+            </div>
+            
+            <div class="control-group">
+                <label>Export</label>
+                <button onclick="exportRoomJSON()" style="background-color: #27ae60;">Download Room JSON</button>
+            </div>
+        </div>
+
+        <!-- Objects Panel -->
+        <div id="panel-objects" class="panel">
+            <div class="control-group">
+                <label>Category</label>
+                <select id="asset-category" onchange="filterAssets()">
+                    <option value="all">All</option>
+                    <option value="furniture">Furniture</option>
+                    <option value="source">Sources</option>
+                    <option value="receiver">Receivers</option>
+                </select>
+            </div>
+            
+            <div id="asset-list" class="asset-list">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Properties Panel -->
+        <div id="panel-properties" class="panel">
+            <div id="properties-content">
+                <p style="color: #888; text-align: center; margin-top: 20px;">No object selected</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="main-view">
+    <div id="view-controls">
+        <button class="view-btn active" onclick="setViewMode('2d')">2D Plan</button>
+        <button class="view-btn" onclick="setViewMode('3d')">3D View</button>
+    </div>
+
+    <!-- 2D Canvas -->
+    <canvas id="canvas-2d"></canvas>
+    
+    <!-- 3D Container -->
+    <div id="canvas-3d-container"></div>
+    
+    <!-- Drawing Toolbar -->
+    <div id="draw-toolbar">
+        <button onclick="finishDrawing()" style="background: #27ae60; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Finish</button>
+        <button onclick="cancelDrawing()" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Cancel</button>
+    </div>
+</div>
+
+<div id="sidebar-right">
+    <div id="sidebar-right-header">
+        <span>Scene</span>
+    </div>
+    <div id="sidebar-content">
+        <div class="control-group" style="padding: 15px; border: none;">
+            <!-- <label>Placed Objects</label> -->
+            <div id="scene-list" style="display: flex; flex-direction: column; gap: 5px;">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+        }
+    }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// --- State ---
+const state = {
+    viewMode: '2d', // '2d' or '3d'
+    drawing: false,
+    drawPoints: [],
+    room: {
+        height: 3.0,
+        walls: [ // Default 5x4 room
+            {x: -2.5, y: -2},
+            {x: 2.5, y: -2},
+            {x: 2.5, y: 2},
+            {x: -2.5, y: 2}
+        ] 
+    },
+    objects: [], // { id, type, class_name, x, y, z, rotation, properties: {} }
+    selectedObjectId: null,
+    dragObjectId: null,
+    camera2d: { x: 0, y: 0, zoom: 40 } // pixels per meter
+};
+
+// Asset Library (Injected by Python)
+const ASSET_LIBRARY = {{ asset_library_json }};
+
+// --- 2D Canvas Setup ---
+const canvas2d = document.getElementById('canvas-2d');
+const ctx2d = canvas2d.getContext('2d');
+let animationFrameId;
+
+function resizeCanvas() {
+    canvas2d.width = canvas2d.parentElement.clientWidth;
+    canvas2d.height = canvas2d.parentElement.clientHeight;
+    draw2D();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// --- 3D Scene Setup ---
+let scene, camera3d, renderer3d, controls3d;
+let obj3dMap = {}; // Map object ID to THREE.Object3D
+
+function init3D() {
+    const container = document.getElementById('canvas-3d-container');
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf0f0f0);
+
+    camera3d = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera3d.position.set(0, -10, 10);
+    camera3d.up.set(0, 0, 1);
+
+    renderer3d = new THREE.WebGLRenderer({ antialias: true });
+    renderer3d.setSize(container.clientWidth, container.clientHeight);
+    renderer3d.shadowMap.enabled = true;
+    container.appendChild(renderer3d.domElement);
+
+    controls3d = new OrbitControls(camera3d, renderer3d.domElement);
+    controls3d.enableDamping = true;
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, -5, 10);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    // Grid helper
+    const gridHelper = new THREE.GridHelper(20, 20);
+    gridHelper.rotation.x = Math.PI / 2;
+    scene.add(gridHelper);
+    
+    animate3D();
+}
+
+function animate3D() {
+    requestAnimationFrame(animate3D);
+    if (state.viewMode === '3d') {
+        controls3d.update();
+        renderer3d.render(scene, camera3d);
+    }
+}
+
+function update3DScene() {
+    if (!scene) return;
+    
+    // Clear existing objects (except lights/grid)
+    // A better way is to track objects
+    const toRemove = [];
+    scene.traverse(child => {
+        if (child.userData.isRoomObject) toRemove.push(child);
+    });
+    toRemove.forEach(c => scene.remove(c));
+
+    // 1. Build Walls
+    if (state.room.walls.length >= 3) {
+        const shape = new THREE.Shape();
+        shape.moveTo(state.room.walls[0].x, state.room.walls[0].y);
+        for (let i = 1; i < state.room.walls.length; i++) {
+            shape.lineTo(state.room.walls[i].x, state.room.walls[i].y);
+        }
+        shape.closePath();
+
+        const extrudeSettings = {
+            steps: 1,
+            depth: state.room.height,
+            bevelEnabled: false
+        };
+
+        const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        // Floor
+        const floorGeom = new THREE.ShapeGeometry(shape);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
+        const floorMesh = new THREE.Mesh(floorGeom, floorMat);
+        floorMesh.userData.isRoomObject = true;
+        floorMesh.receiveShadow = true;
+        scene.add(floorMesh);
+
+        // Walls (Wireframe or Transparent)
+        // We actually want walls to be thin lines in visualization or solid
+        // Let's make walls "solid" but thin? No, ExtrudeGeometry fills the volume.
+        // We want walls around the perimeter.
+        
+        // Create wall mesh by extruding the outline?
+        // Let's just visualize the volume as a semi-transparent block for now?
+        // Or simpler: Just walls.
+        
+        // Wall generation: Iterate segments
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+        
+        for (let i = 0; i < state.room.walls.length; i++) {
+            const p1 = state.room.walls[i];
+            const p2 = state.room.walls[(i + 1) % state.room.walls.length];
+            
+            const dist = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+            const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+            
+            const wallGeom = new THREE.PlaneGeometry(dist, state.room.height);
+            const wall = new THREE.Mesh(wallGeom, wallMat);
+            
+            // Position: Center of segment, z = height/2
+            wall.position.set((p1.x + p2.x)/2, (p1.y + p2.y)/2, state.room.height/2);
+            wall.rotation.order = 'ZYX'; // Important: Rotate Z (heading) first, then X (stand up)
+            wall.rotation.z = angle;
+            wall.rotation.x = Math.PI / 2; // Stand up
+            
+            wall.userData.isRoomObject = true;
+            scene.add(wall);
+        }
+    }
+
+    // 2. Build Objects
+    state.objects.forEach(obj => {
+        const asset = ASSET_LIBRARY[obj.class_name];
+        if (!asset) return;
+
+        let mesh;
+        
+        // Reconstruct mesh from asset data (vertices/faces)
+        // Or use simple primitives if data missing
+        if (asset.vertices && asset.faces) {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            
+            // Faces are indices. We need to unroll them to triangles for BufferGeometry
+            // Or use an indexed geometry.
+            // faces in python are list of lists of indices.
+            // We need to triangulate quads.
+            
+            const indices = [];
+            const flatVerts = new Float32Array(asset.vertices.flat());
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(flatVerts, 3));
+            
+            // Triangulate
+            asset.faces.forEach(face => {
+                if (face.length === 3) {
+                    indices.push(face[0], face[1], face[2]);
+                } else if (face.length === 4) {
+                    indices.push(face[0], face[1], face[2]);
+                    indices.push(face[0], face[2], face[3]);
+                }
+                // Ignore > 4 for now or use fan
+            });
+            
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+            
+            let color = 0x3498db; // Default blue
+            if (obj.type === 'source') color = 0xe74c3c;
+            if (obj.type === 'receiver') color = 0x2ecc71;
+            if (obj.class_name.includes("Chair")) color = 0xd35400;
+            if (obj.class_name.includes("Table")) color = 0x8e44ad;
+            
+            const material = new THREE.MeshStandardMaterial({ color: color });
+            mesh = new THREE.Mesh(geometry, material);
+            
+        } else {
+            // Fallback box
+            const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            const material = new THREE.MeshStandardMaterial({ color: 0x999999 });
+            mesh = new THREE.Mesh(geometry, material);
+        }
+        
+        mesh.position.set(obj.x, obj.y, obj.z);
+        mesh.rotation.z = (obj.rotation || 0) * Math.PI / 180;
+        
+        mesh.userData.isRoomObject = true;
+        mesh.castShadow = true;
+        scene.add(mesh);
+    });
+}
+
+
+// --- 2D Drawing ---
+function draw2D() {
+    const w = canvas2d.width;
+    const h = canvas2d.height;
+    
+    // Background
+    ctx2d.fillStyle = '#f5f5f5';
+    ctx2d.fillRect(0, 0, w, h);
+    
+    // Grid
+    const cx = w / 2 + state.camera2d.x;
+    const cy = h / 2 + state.camera2d.y;
+    const zoom = state.camera2d.zoom;
+    
+    ctx2d.strokeStyle = '#e0e0e0';
+    ctx2d.lineWidth = 1;
+    
+    // Vertical lines
+    const startX = cx % zoom;
+    for (let x = startX; x < w; x += zoom) {
+        ctx2d.beginPath(); ctx2d.moveTo(x, 0); ctx2d.lineTo(x, h); ctx2d.stroke();
+    }
+    // Horizontal lines
+    const startY = cy % zoom;
+    for (let y = startY; y < h; y += zoom) {
+        ctx2d.beginPath(); ctx2d.moveTo(0, y); ctx2d.lineTo(w, y); ctx2d.stroke();
+    }
+    
+    // Axes
+    ctx2d.strokeStyle = '#bbb';
+    ctx2d.lineWidth = 2;
+    ctx2d.beginPath(); ctx2d.moveTo(cx, 0); ctx2d.lineTo(cx, h); ctx2d.stroke(); // Y axis
+    ctx2d.beginPath(); ctx2d.moveTo(0, cy); ctx2d.lineTo(w, cy); ctx2d.stroke(); // X axis
+    
+    // World to Screen transform
+    const toScreen = (x, y) => ({
+        x: cx + x * zoom,
+        y: cy - y * zoom // Y is up in world, down in canvas
+    });
+    
+    // Draw Room Walls
+    if (state.room.walls.length > 0) {
+        ctx2d.strokeStyle = '#333';
+        ctx2d.lineWidth = 3;
+        ctx2d.fillStyle = '#fff';
+        
+        ctx2d.beginPath();
+        const p0 = toScreen(state.room.walls[0].x, state.room.walls[0].y);
+        ctx2d.moveTo(p0.x, p0.y);
+        for (let i = 1; i < state.room.walls.length; i++) {
+            const p = toScreen(state.room.walls[i].x, state.room.walls[i].y);
+            ctx2d.lineTo(p.x, p.y);
+        }
+        ctx2d.closePath();
+        ctx2d.fill();
+        ctx2d.stroke();
+        
+        // Vertices
+        ctx2d.fillStyle = '#333';
+        for (const pt of state.room.walls) {
+            const p = toScreen(pt.x, pt.y);
+            ctx2d.beginPath(); ctx2d.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx2d.fill();
+        }
+    }
+    
+    // Draw Active Drawing Poly
+    if (state.drawing && state.drawPoints.length > 0) {
+        ctx2d.strokeStyle = '#e74c3c';
+        ctx2d.lineWidth = 2;
+        ctx2d.beginPath();
+        const p0 = toScreen(state.drawPoints[0].x, state.drawPoints[0].y);
+        ctx2d.moveTo(p0.x, p0.y);
+        for (let i = 1; i < state.drawPoints.length; i++) {
+            const p = toScreen(state.drawPoints[i].x, state.drawPoints[i].y);
+            ctx2d.lineTo(p.x, p.y);
+        }
+        ctx2d.stroke();
+        
+        for (const pt of state.drawPoints) {
+            const p = toScreen(pt.x, pt.y);
+            ctx2d.fillStyle = '#e74c3c';
+            ctx2d.beginPath(); ctx2d.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx2d.fill();
+        }
+    }
+    
+    // Draw Objects
+    for (const obj of state.objects) {
+        const p = toScreen(obj.x, obj.y);
+        const rot = obj.rotation * Math.PI / 180;
+        
+        ctx2d.save();
+        ctx2d.translate(p.x, p.y);
+        ctx2d.rotate(-rot); // Canvas rotates clockwise, math counter-clockwise
+        
+        const isSelected = state.selectedObjectId === obj.id;
+        
+        // Draw footprint
+        // Try to get size from asset or default
+        const asset = ASSET_LIBRARY[obj.class_name];
+        // TODO: Calculate bounding box from vertices if available
+        let dimX = 0.5, dimY = 0.5;
+        
+        ctx2d.fillStyle = isSelected ? 'rgba(52, 152, 219, 0.5)' : 'rgba(200, 200, 200, 0.5)';
+        ctx2d.strokeStyle = isSelected ? '#2980b9' : '#666';
+        ctx2d.lineWidth = 2;
+        
+        if (obj.type === 'source') {
+             // Triangle for source
+             ctx2d.beginPath();
+             ctx2d.moveTo(0, -10);
+             ctx2d.lineTo(10, 10);
+             ctx2d.lineTo(-10, 10);
+             ctx2d.closePath();
+             ctx2d.fill();
+             ctx2d.stroke();
+        } else if (obj.type === 'receiver') {
+             // Circle for receiver
+             ctx2d.beginPath();
+             ctx2d.arc(0, 0, 10, 0, Math.PI * 2);
+             ctx2d.fill();
+             ctx2d.stroke();
+        } else {
+             // Rectangle for furniture
+             // Scale by zoom
+             const w = (dimX * zoom);
+             const h = (dimY * zoom);
+             // Use a fixed visual size for now or better bounding box
+             const size = 30; 
+             ctx2d.fillRect(-size/2, -size/2, size, size);
+             ctx2d.strokeRect(-size/2, -size/2, size, size);
+             
+             // Direction indicator
+             ctx2d.beginPath();
+             ctx2d.moveTo(0, 0);
+             ctx2d.lineTo(size/2 + 10, 0); // Forward X
+             ctx2d.strokeStyle = 'red';
+             ctx2d.lineWidth = 1;
+             ctx2d.stroke();
+        }
+        
+        ctx2d.restore();
+        
+        // Label
+        if (isSelected) {
+            ctx2d.fillStyle = '#000';
+            ctx2d.font = '12px sans-serif';
+            ctx2d.fillText(obj.class_name, p.x + 20, p.y - 20);
+        }
+    }
+}
+
+function animate2D() {
+    draw2D();
+    animationFrameId = requestAnimationFrame(animate2D);
+}
+
+
+// --- Interaction Logic ---
+function screenToWorld(sx, sy) {
+    const w = canvas2d.width;
+    const h = canvas2d.height;
+    const cx = w / 2 + state.camera2d.x;
+    const cy = h / 2 + state.camera2d.y;
+    const zoom = state.camera2d.zoom;
+    return {
+        x: (sx - cx) / zoom,
+        y: -(sy - cy) / zoom
+    };
+}
+
+let isDragging = false;
+let lastMouse = {x: 0, y: 0};
+
+canvas2d.addEventListener('mousedown', e => {
+    const rect = canvas2d.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const world = screenToWorld(mx, my);
+    
+    if (state.drawing) {
+        // Check if we are closing the polygon (clicking near first point)
+        if (state.drawPoints.length > 2) {
+            const p0 = state.drawPoints[0];
+            const dist = Math.sqrt(Math.pow(p0.x - world.x, 2) + Math.pow(p0.y - world.y, 2));
+            const snapDist = 20 / state.camera2d.zoom;
+            
+            if (dist < snapDist) {
+                finishDrawing();
+                return;
+            }
+        }
+        
+        // Prevent duplicate points (e.g. from double click)
+        if (state.drawPoints.length > 0) {
+            const last = state.drawPoints[state.drawPoints.length - 1];
+            const d = Math.sqrt(Math.pow(last.x - world.x, 2) + Math.pow(last.y - world.y, 2));
+            if (d < 0.001) return;
+        }
+        
+        state.drawPoints.push(world);
+        return;
+    }
+    
+    // Check hit on objects
+    let hitId = null;
+    // Simple hit test (distance based for now)
+    const hitThreshold = 20 / state.camera2d.zoom; // 20 pixels radius
+    
+    // Iterate reverse to hit top objects
+    for (let i = state.objects.length - 1; i >= 0; i--) {
+        const obj = state.objects[i];
+        const dist = Math.sqrt(Math.pow(obj.x - world.x, 2) + Math.pow(obj.y - world.y, 2));
+        if (dist < hitThreshold) {
+            hitId = obj.id;
+            break;
+        }
+    }
+    
+    if (hitId) {
+        selectObject(hitId);
+        state.dragObjectId = hitId;
+        isDragging = true;
+    } else {
+        // Drag camera
+        selectObject(null);
+        state.dragObjectId = null;
+        isDragging = true;
+    }
+    
+    lastMouse = {x: mx, y: my};
+});
+
+canvas2d.addEventListener('mousemove', e => {
+    const rect = canvas2d.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    if (state.drawing) {
+        draw2D(); // Re-draw to show guide line?
+        // Ideally we draw a dynamic line to mouse cursor here
+        return;
+    }
+
+    if (isDragging) {
+        const dx = (mx - lastMouse.x);
+        const dy = (my - lastMouse.y);
+        
+        if (state.dragObjectId) {
+            // Move Object
+            const obj = state.objects.find(o => o.id === state.dragObjectId);
+            if (obj) {
+                obj.x += dx / state.camera2d.zoom;
+                obj.y -= dy / state.camera2d.zoom;
+                updatePropertiesPanel();
+            }
+        } else {
+            // Pan Camera
+            state.camera2d.x += dx;
+            state.camera2d.y += dy;
+        }
+        lastMouse = {x: mx, y: my};
+    }
+});
+
+canvas2d.addEventListener('mouseup', () => {
+    isDragging = false;
+    state.dragObjectId = null;
+});
+
+canvas2d.addEventListener('wheel', e => {
+    e.preventDefault();
+    const scale = e.deltaY > 0 ? 0.9 : 1.1;
+    state.camera2d.zoom *= scale;
+    // Clamp zoom
+    state.camera2d.zoom = Math.max(5, Math.min(200, state.camera2d.zoom));
+});
+
+canvas2d.addEventListener('dblclick', e => {
+    if (state.drawing) {
+        finishDrawing();
+    }
+});
+
+
+// --- UI Functions ---
+window.switchTab = function(tabName) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    
+    // Simple logic based on order or name
+    const tabs = ['room', 'objects', 'properties'];
+    document.querySelectorAll('.tab')[tabs.indexOf(tabName)].classList.add('active');
+    document.getElementById(`panel-${tabName}`).classList.add('active');
+};
+
+window.setViewMode = function(mode) {
+    state.viewMode = mode;
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view-btn')[mode === '2d' ? 0 : 1].classList.add('active');
+    
+    if (mode === '2d') {
+        document.getElementById('canvas-2d').style.display = 'block';
+        document.getElementById('canvas-3d-container').style.display = 'none';
+        resizeCanvas();
+    } else {
+        document.getElementById('canvas-2d').style.display = 'none';
+        document.getElementById('canvas-3d-container').style.display = 'block';
+        if (!scene) init3D();
+        update3DScene();
+        // Resize 3D renderer
+        const container = document.getElementById('canvas-3d-container');
+        camera3d.aspect = container.clientWidth / container.clientHeight;
+        camera3d.updateProjectionMatrix();
+        renderer3d.setSize(container.clientWidth, container.clientHeight);
+    }
+};
+
+window.createShoebox = function(w, d) {
+    state.room.walls = [
+        {x: -w/2, y: -d/2},
+        {x: w/2, y: -d/2},
+        {x: w/2, y: d/2},
+        {x: -w/2, y: d/2}
+    ];
+    state.objects = []; // Clear objects on new room?
+    selectObject(null);
+    state.camera2d.x = 0;
+    state.camera2d.y = 0;
+    state.camera2d.zoom = Math.min(canvas2d.width/w, canvas2d.height/d) * 0.8;
+    calculateRoomStats();
+    updateSceneList();
+};
+
+window.updateRoomHeight = function() {
+    const val = parseFloat(document.getElementById('room-height').value);
+    if (val > 0) state.room.height = val;
+    calculateRoomStats();
+};
+
+window.startDrawing = function() {
+    state.drawing = true;
+    state.drawPoints = [];
+    document.getElementById('draw-toolbar').style.display = 'flex';
+    document.getElementById('btn-draw-poly').disabled = true;
+};
+
+window.finishDrawing = function() {
+    if (state.drawPoints.length >= 3) {
+        state.room.walls = [...state.drawPoints];
+        calculateRoomStats();
+    } else {
+        alert("A room must have at least 3 points.");
+    }
+    state.drawing = false;
+    document.getElementById('draw-toolbar').style.display = 'none';
+    document.getElementById('btn-draw-poly').disabled = false;
+};
+
+window.cancelDrawing = function() {
+    state.drawing = false;
+    state.drawPoints = [];
+    document.getElementById('draw-toolbar').style.display = 'none';
+    document.getElementById('btn-draw-poly').disabled = false;
+};
+
+window.addObject = function(className) {
+    const asset = ASSET_LIBRARY[className];
+    const newObj = {
+        id: Date.now(),
+        class_name: className,
+        type: asset.type || 'furniture',
+        x: 0, 
+        y: 0,
+        z: 0, // Default to floor
+        rotation: 0
+    };
+    
+    // Auto-adjust Z for wall-mounted items?
+    // For now everything is on floor (z=0) unless manually moved.
+    
+    state.objects.push(newObj);
+    updateSceneList();
+    selectObject(newObj.id);
+    switchTab('properties');
+};
+
+function selectObject(id) {
+    state.selectedObjectId = id;
+    updatePropertiesPanel();
+    // Update Scene List selection visual
+    document.querySelectorAll('.scene-item').forEach(el => el.classList.remove('selected'));
+    if (id) {
+        const el = document.getElementById(`scene-item-${id}`);
+        if (el) el.classList.add('selected');
+    }
+}
+
+function updatePropertiesPanel() {
+    const panel = document.getElementById('properties-content');
+    if (!state.selectedObjectId) {
+        panel.innerHTML = '<p style="color: #888; text-align: center; margin-top: 20px;">No object selected</p>';
+        return;
+    }
+    
+    const obj = state.objects.find(o => o.id === state.selectedObjectId);
+    if (!obj) return;
+    
+    panel.innerHTML = `
+        <div class="control-group">
+            <label>Name</label>
+            <input type="text" value="${obj.class_name}" disabled>
+        </div>
+        <div class="control-group">
+            <label>Position X (m)</label>
+            <input type="number" step="0.1" value="${obj.x.toFixed(2)}" onchange="updateObjProp('x', this.value)">
+        </div>
+        <div class="control-group">
+            <label>Position Y (m)</label>
+            <input type="number" step="0.1" value="${obj.y.toFixed(2)}" onchange="updateObjProp('y', this.value)">
+        </div>
+        <div class="control-group">
+            <label>Position Z (m)</label>
+            <input type="number" step="0.1" value="${obj.z.toFixed(2)}" onchange="updateObjProp('z', this.value)">
+        </div>
+        <div class="control-group">
+            <label>Rotation Z (deg)</label>
+            <input type="number" step="15" value="${obj.rotation}" onchange="updateObjProp('rotation', this.value)">
+        </div>
+        <div class="control-group">
+            <button class="danger" onclick="deleteSelected()">Delete Object</button>
+        </div>
+    `;
+}
+
+window.updateObjProp = function(prop, val) {
+    const obj = state.objects.find(o => o.id === state.selectedObjectId);
+    if (obj) {
+        obj[prop] = parseFloat(val);
+    }
+};
+
+window.deleteSelected = function() {
+    state.objects = state.objects.filter(o => o.id !== state.selectedObjectId);
+    selectObject(null);
+    updateSceneList();
+};
+
+window.calculateRoomStats = function() {
+    // Shoelace formula for Area
+    // A = 0.5 * | sum(x_i * y_{i+1} - x_{i+1} * y_i) |
+    let area = 0;
+    const walls = state.room.walls;
+    if (walls.length < 3) {
+        area = 0;
+    } else {
+        let sum = 0;
+        for (let i = 0; i < walls.length; i++) {
+            const p1 = walls[i];
+            const p2 = walls[(i + 1) % walls.length];
+            sum += (p1.x * p2.y) - (p2.x * p1.y);
+        }
+        area = Math.abs(sum) / 2;
+    }
+    
+    const volume = area * state.room.height;
+    
+    document.getElementById('room-stats').innerHTML = `
+        Area: ${area.toFixed(2)} m²<br>
+        Volume: ${volume.toFixed(2)} m³
+    `;
+};
+
+window.updateSceneList = function() {
+    const list = document.getElementById('scene-list');
+    list.innerHTML = '';
+    
+    state.objects.forEach(obj => {
+        const item = document.createElement('div');
+        item.id = `scene-item-${obj.id}`;
+        item.className = 'scene-item';
+        item.style.padding = '8px';
+        item.style.border = '1px solid #eee';
+        item.style.borderRadius = '4px';
+        item.style.cursor = 'pointer';
+        item.style.backgroundColor = (state.selectedObjectId === obj.id) ? '#eaf6ff' : 'white';
+        item.style.borderColor = (state.selectedObjectId === obj.id) ? '#3498db' : '#eee';
+        
+        let icon = '📦';
+        if (obj.type === 'source') icon = '🔊';
+        if (obj.type === 'receiver') icon = '🎤';
+        
+        item.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span>${icon} ${obj.class_name}</span>
+                <span style="font-size:0.8em; color:#999;">ID: ${obj.id.toString().slice(-4)}</span>
+            </div>
+        `;
+        
+        item.onclick = () => {
+            selectObject(obj.id);
+            switchTab('properties');
+        };
+        
+        list.appendChild(item);
+    });
+    
+    if (state.objects.length === 0) {
+        list.innerHTML = '<div style="text-align:center; color:#999; font-size:0.9em; padding:10px;">No objects placed</div>';
+    }
+};
+
+window.populateAssetList = function() {
+    const list = document.getElementById('asset-list');
+    list.innerHTML = '';
+    const category = document.getElementById('asset-category').value;
+    
+    Object.keys(ASSET_LIBRARY).sort().forEach(key => {
+        const asset = ASSET_LIBRARY[key];
+        
+        // Filter
+        if (category !== 'all') {
+             if (category === 'furniture' && asset.type !== 'furniture') return;
+             if (category === 'source' && asset.type !== 'source') return;
+             if (category === 'receiver' && asset.type !== 'receiver') return;
+        }
+
+        const item = document.createElement('div');
+        item.className = 'asset-item';
+        // Choose icon
+        let icon = '📦';
+        if (asset.type === 'source') icon = '🔊';
+        if (asset.type === 'receiver') icon = '🎤';
+        if (key.includes('Chair')) icon = '🪑';
+        if (key.includes('Table')) icon = '🔲';
+        if (key.includes('Bed')) icon = '🛌';
+        if (key.includes('Person')) icon = '👤';
+        
+        item.innerHTML = `<span class="icon">${icon}</span>${key}`;
+        item.onclick = () => addObject(key);
+        list.appendChild(item);
+    });
+};
+
+window.filterAssets = function() {
+    populateAssetList();
+};
+
+window.exportRoomJSON = function() {
+    const exportData = {
+        room_name: "My Custom Room",
+        room_dims: state.room.height, // Just height for polygon room, or we can infer box
+        walls: state.room.walls,
+        objects: state.objects.map(o => ({
+            class: o.class_name,
+            position: [o.x, o.y, o.z],
+            rotation: o.rotation
+        }))
+    };
+    
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "room_config.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+};
+
+
+// Initialize
+resizeCanvas();
+calculateRoomStats();
+updateSceneList();
+animate2D();
+populateAssetList();
+
+</script>
+</body>
+</html>
+
