@@ -41,11 +41,11 @@ def main(mic_type='mono', output_dir='outputs'):
         transition_time=0.08,  # s
         dgfem_config=DGFEMConfig(
             polynomial_order=2,
-            mesh_resolution=0.5,  # Lower resolution for faster demo
+            mesh_resolution=0.35,  # Lower resolution for faster demo
             cfl_number=0.4
         ),
-        ism_config={'max_order': 4},
-        raytracer_config={'num_rays': 5000}  # Lower ray count for faster demo
+        ism_config={'max_order': 2},
+        raytracer_config={'num_rays': 20000}
     )
 
     # 5. Initialize the solver
@@ -53,7 +53,7 @@ def main(mic_type='mono', output_dir='outputs'):
 
     # 6. Compute the Room Impulse Response (RIR)
     print(f"Computing RIR for source: '{room.sources[0].name}' to receiver: '{mic.name}'...")
-    rir = solver.compute_rir(duration=0.5)
+    rir = solver.compute_rir(duration=1.0)
 
     print(f"\nFinal Hybrid RIR computed with {len(rir)} samples.")
     print(f"Energy: {np.sum(rir**2):.6f}")

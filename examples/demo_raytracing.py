@@ -21,7 +21,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 def main(mic_type='mono', output_dir='outputs', effects=None,
          save_rir_flag=False, save_audio_flag=True, save_acoustics_flag=True,
-         save_psychoacoustics_flag=False, save_mesh_flag=True):
+         save_psychoacoustics_flag=False, save_mesh_flag=False):
     # 1. Define Room for Raytracing (8 square meters -> e.g., 4m x 2m or 2.83m x 2.83m)
     # Using 4m x 2m x 2.5m height
     room, sources, mic = DemoRoom(mic_type=mic_type).create_room()
@@ -124,10 +124,9 @@ if __name__ == "__main__":
         help="Compute and save psychoacoustic metrics."
     )
     parser.add_argument(
-        '--no-save-mesh',
-        action='store_false',
-        dest='save_mesh',
-        help="Do not save the room geometry as an OBJ mesh file."
+        '--save-mesh',
+        action='store_true',
+        help="Save the room geometry as an OBJ mesh file."
     )
     parser.add_argument(
         '--effects',

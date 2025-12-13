@@ -22,8 +22,8 @@ def main(mic_type='mono', output_dir='outputs', effects=None,
          save_psychoacoustics_flag=False, save_mesh_flag=True):
     # 1. Define Room
     # room, sources, mic = TestBenchRoom(mic_type=mic_type).create_room()
-    # room, sources, mic = DemoRoom(mic_type=mic_type).create_room()
-    room, sources, mic = MedicalRoom8M(mic_type=mic_type).create_room()
+    room, sources, mic = DemoRoom(mic_type=mic_type).create_room()
+    # room, sources, mic = MedicalRoom8M(mic_type=mic_type).create_room()
     src1 = sources["src1"]
     src2 = sources["src2"]
     src_bg = sources["src_bg"]
@@ -45,18 +45,22 @@ def main(mic_type='mono', output_dir='outputs', effects=None,
 
     # 7. Assign Audio Files
     print("Assigning audio files...")
-    audio_path = os.path.join(os.path.dirname(__file__), "audios", "speaker_1.wav")
+    base_path = "audios-trump-indextts15"
+    # base_path = "audios-indextts"
+    # base_path = "audios"
+
+    audio_path = os.path.join(os.path.dirname(__file__), base_path, "speaker_1.wav")
     if not os.path.exists(audio_path):
         print(f"Warning: Example audio file not found at {audio_path}")
         return
     renderer.set_source_audio(src1, audio_path, gain=1.0)
-    audio_path_2 = os.path.join(os.path.dirname(__file__), "audios", "speaker_2.wav")
+    audio_path_2 = os.path.join(os.path.dirname(__file__), base_path, "speaker_2.wav")
     if not os.path.exists(audio_path_2):
         print(f"Warning: Example audio file not found at {audio_path_2}")
         return
     renderer.set_source_audio(src2, audio_path_2, gain=1.0)
 
-    audio_path_bg = os.path.join(os.path.dirname(__file__), "audios", "foreground.wav")
+    audio_path_bg = os.path.join(os.path.dirname(__file__), base_path, "foreground.wav")
     if not os.path.exists(audio_path_bg):
         print(f"Warning: Example audio file not found at {audio_path_bg}")
     else:

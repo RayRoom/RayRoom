@@ -40,7 +40,7 @@ def main(mic_type='mono', output_dir='outputs'):
         polynomial_order=2,
         use_gpu=False,  # Set to True if CuPy is available and a GPU is present
         cfl_number=0.3,
-        mesh_resolution=0.4  # meters
+        mesh_resolution=0.35  # meters
     )
 
     # 5. Initialize the solver
@@ -50,7 +50,7 @@ def main(mic_type='mono', output_dir='outputs'):
     # 6. Compute the Room Impulse Response (RIR)
     # The DGFEM solver uses the first source and receiver defined in the room.
     print(f"Computing RIR for source: '{room.sources[0].name}' to receiver: '{mic.name}'...")
-    rir = solver.compute_rir(duration=0.1)
+    rir = solver.compute_rir(duration=0.2)
 
     print(f"\nRIR computed with {len(rir)} samples.")
     print(f"Energy: {np.sum(rir**2):.6f}")

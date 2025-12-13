@@ -21,7 +21,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 def main(mic_type='mono', output_dir='outputs', effects=None,
          save_rir_flag=False, save_audio_flag=True, save_acoustics_flag=True,
-         save_psychoacoustics_flag=False, save_mesh_flag=True):
+         save_psychoacoustics_flag=False, save_mesh_flag=False):
     """
     Main function to run the hybrid simulation.
     """
@@ -67,8 +67,8 @@ def main(mic_type='mono', output_dir='outputs', effects=None,
 
     with PerformanceMonitor() as monitor:
         outputs, _, rirs = renderer.render(
-            n_rays=20000,       # Reduced ray count since early reflections are exact
-            max_hops=40,
+            n_rays=20000,
+            max_hops=50,
             rir_duration=1.5,
             record_paths=True,
             interference=False,
@@ -127,10 +127,9 @@ if __name__ == "__main__":
         help="Compute and save psychoacoustic metrics."
     )
     parser.add_argument(
-        '--no-save-mesh',
-        action='store_false',
-        dest='save_mesh',
-        help="Do not save the room geometry as an OBJ mesh file."
+        '--save-mesh',
+        action='store_true',
+        help="Save the room geometry as an OBJ mesh file."
     )
     parser.add_argument(
         '--effects',
@@ -140,7 +139,7 @@ if __name__ == "__main__":
         choices=list(presets.EFFECTS.keys()) + ["original"],
         help="Apply a post-processing effect to the output audio."
     )
-    parser.set_defaults(save_audio=True, save_acoustics=True, save_psychoacoustics=False, save_mesh=True)
+    parser.set_defaults(save_audio=True, save_acoustics=True, save_psychoacoustics=False, save_mesh=False)
     args = parser.parse_args()
     main(mic_type=args.mic, output_dir=args.output_dir, effects=args.effects,
          save_rir_flag=args.save_rir, save_audio_flag=args.save_audio,

@@ -22,7 +22,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 def main(mic_type='mono', output_dir='outputs/spectral', effects=None,
          save_rir_flag=False, save_audio_flag=True, save_acoustics_flag=True,
-         save_psychoacoustics_flag=False, save_mesh_flag=True):
+         save_psychoacoustics_flag=False, save_mesh_flag=False):
     """
     Main function to run the spectral simulation.
     """
@@ -85,11 +85,11 @@ def main(mic_type='mono', output_dir='outputs/spectral', effects=None,
 
     with PerformanceMonitor() as monitor:
         outputs, rirs = renderer.render(
-            n_rays=10000,
-            max_hops=10,
-            rir_duration=1.0,  # Short duration for demo speed
+            n_rays=20000,
+            max_hops=50,
+            rir_duration=1.5,
             record_paths=False,
-            ism_order=1,
+            ism_order=2,
             show_path_plot=False
         )
     save_performance_metrics(monitor, output_dir, "spectral")
@@ -144,10 +144,9 @@ if __name__ == "__main__":
         help="Compute and save psychoacoustic metrics."
     )
     parser.add_argument(
-        '--no-save-mesh',
-        action='store_false',
-        dest='save_mesh',
-        help="Do not save the room geometry as an OBJ mesh file."
+        '--save-mesh',
+        action='store_true',
+        help="Save the room geometry as an OBJ mesh file."
     )
     parser.add_argument(
         '--effects',
