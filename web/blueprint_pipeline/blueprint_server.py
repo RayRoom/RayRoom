@@ -11,8 +11,8 @@ import traceback
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
-import tempfile
 import shutil
+import time
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -44,6 +44,46 @@ class BlueprintExecutor:
         self.receiver = None
         self.renderer = None
         
+        # Create temporary directory for audio files in blueprint_pipeline directory
+        blueprint_pipeline_dir = Path(__file__).parent
+        temp_base = blueprint_pipeline_dir / 'tmp'
+        temp_base.mkdir(exist_ok=True)
+        
+        # Create a unique subdirectory for this execution
+        timestamp = int(time.time() * 1000)  # milliseconds
+        self.temp_dir = temp_base / f'rayroom_blueprint_{timestamp}'
+        self.temp_dir.mkdir(exist_ok=True)
+        print(f"Created temporary directory: {self.temp_dir}")
+        
+    def __del__(self):
+        """Clean up temporary directory"""
+        if hasattr(self, 'temp_dir') and self.temp_dir.exists():
+            try:
+                shutil.rmtree(self.temp_dir)
+                print(f"Cleaned up temporary directory: {self.temp_dir}")
+            except Exception as e:
+                print(f"Warning: Could not clean up temp directory: {e}")
+    
+    def _copy_audio_to_temp(self, source_path):
+        """Copy an audio file to the temporary directory and return the temp path"""
+        if not source_path or not os.path.exists(source_path):
+            return None
+        
+        # Get the filename
+        filename = os.path.basename(source_path)
+        temp_path = self.temp_dir / filename
+        
+        # Copy the file if it doesn't already exist in temp
+        if not temp_path.exists():
+            try:
+                shutil.copy2(source_path, temp_path)
+                print(f"Copied audio file to temp: {source_path} -> {temp_path}")
+            except Exception as e:
+                print(f"Error copying audio file: {e}")
+                return None
+        
+        return str(temp_path)
+        
     def execute(self, blueprint):
         """Execute the blueprint pipeline"""
         try:
@@ -57,7 +97,44 @@ class BlueprintExecutor:
                 print(f"Executing node {node_id}: {node_data['type']}")
                 self._execute_node(node_data, blueprint)
             
-            return {'success': True, 'message': 'Pipeline executed successfully'}
+            # Get audio file path if available (only if audio was actually saved)
+            audio_file_path = self.node_results.get('audio_file_path')
+            result = {'success': True, 'message': 'Pipeline executed successfully'}
+            
+            # Only include audio file path if it was actually created
+            if audio_file_path:
+                # Make path relative to web directory for serving
+                web_dir = Path(__file__).parent.parent
+                try:
+                    audio_path = Path(audio_file_path)
+                    
+                    # Check if path is absolute or relative
+                    if audio_path.is_absolute():
+                        # Try to make it relative to web directory
+                        try:
+                            relative_path = audio_path.relative_to(web_dir)
+                            full_path = web_dir / relative_path
+                        except ValueError:
+                            # Can't make relative, use absolute
+                            full_path = audio_path
+                            relative_path = audio_path
+                    else:
+                        # Already relative, construct full path to check existence
+                        full_path = web_dir / audio_path
+                        relative_path = audio_path
+                    
+                    # Check if file actually exists
+                    if full_path.exists():
+                        result['audioFile'] = str(relative_path)
+                        print(f"Returning audio file path: {result['audioFile']} (full path: {full_path})")
+                    else:
+                        print(f"Warning: Audio file path provided but file doesn't exist: {full_path}")
+                except Exception as e:
+                    print(f"Warning: Could not process audio file path: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            return result
         except Exception as e:
             traceback.print_exc()
             return {'success': False, 'error': str(e)}
@@ -227,37 +304,61 @@ class BlueprintExecutor:
                 
                 if audio_file and source_name:
                     # Try relative path from examples directory
-                    examples_dir = Path(__file__).parent.parent / 'examples'
+                    # __file__ is in web/blueprint_pipeline/, so go up 3 levels to project root
+                    project_root = Path(__file__).parent.parent.parent
+                    examples_dir = project_root / 'examples'
+                    
                     if not os.path.isabs(audio_file):
-                        audio_file = str(examples_dir / audio_file)
+                        # If the path already includes a directory (e.g., "audios-trump-indextts15/speaker_1.wav")
+                        # use it as-is, otherwise try to find it
+                        if '/' in audio_file or '\\' in audio_file:
+                            audio_file = str(examples_dir / audio_file)
+                        else:
+                            # Just filename, try common directories
+                            audio_file = str(examples_dir / audio_file)
                     
                     if source_name in self.sources:
+                        # First, try to find the audio file
+                        found_audio_path = None
+                        
                         if os.path.exists(audio_file):
-                            print(f"Assigning audio file {audio_file} to source {source_name}")
-                            self.renderer.set_source_audio(
-                                self.sources[source_name],
-                                audio_file,
-                                gain=gain
-                            )
-                            audio_assigned = True
+                            found_audio_path = audio_file
                         else:
-                            print(f"Warning: Audio file not found: {audio_file}")
-                            # Try alternative paths
+                            # Try alternative paths - check common audio directories
+                            filename = os.path.basename(audio_file)
                             alt_paths = [
-                                str(examples_dir / 'audios-trump-indextts15' / os.path.basename(audio_file)),
-                                str(examples_dir / 'audios-indextts' / os.path.basename(audio_file)),
-                                str(examples_dir / 'audios' / os.path.basename(audio_file)),
+                                str(examples_dir / 'audios-trump-indextts15' / filename),
+                                str(examples_dir / 'audios-indextts' / filename),
+                                str(examples_dir / 'audios' / filename),
+                                # Also try the original path structure
+                                str(examples_dir / audio_file) if '/' not in audio_file else None,
                             ]
+                            # Remove None values
+                            alt_paths = [p for p in alt_paths if p]
+                            
                             for alt_path in alt_paths:
                                 if os.path.exists(alt_path):
+                                    found_audio_path = alt_path
                                     print(f"Found audio file at alternative path: {alt_path}")
-                                    self.renderer.set_source_audio(
-                                        self.sources[source_name],
-                                        alt_path,
-                                        gain=gain
-                                    )
-                                    audio_assigned = True
                                     break
+                            
+                            if not found_audio_path:
+                                print(f"Warning: Audio file not found: {audio_file}")
+                                print(f"Could not find audio file '{filename}' in any of the expected locations")
+                        
+                        # If we found the file, copy it to temp and use the temp path
+                        if found_audio_path:
+                            temp_audio_path = self._copy_audio_to_temp(found_audio_path)
+                            if temp_audio_path:
+                                print(f"Assigning audio file {temp_audio_path} to source {source_name}")
+                                self.renderer.set_source_audio(
+                                    self.sources[source_name],
+                                    temp_audio_path,
+                                    gain=gain
+                                )
+                                audio_assigned = True
+                            else:
+                                print("Warning: Could not copy audio file to temp directory")
                     else:
                         print(f"Warning: Source '{source_name}' not found in room. Available sources: {list(self.sources.keys())}")
         
@@ -291,8 +392,21 @@ class BlueprintExecutor:
                         rir_duration=rir_duration
                     )
             
-            if not outputs or not rirs:
-                raise ValueError("Renderer produced empty outputs or RIRs")
+            # Check if outputs/rirs are empty or contain only None values
+            # Renderers return {rx.name: None} when no audio is assigned, not empty dict
+            has_valid_outputs = outputs and any(v is not None for v in outputs.values())
+            
+            if not rirs:
+                print("Warning: Renderer produced no RIRs")
+            
+            # If both are empty/invalid, that's an error
+            if not has_valid_outputs and not rirs:
+                raise ValueError("Renderer produced empty outputs and RIRs - rendering failed completely")
+            
+            # If outputs are invalid but we have RIRs, that's okay (no audio assigned)
+            if not has_valid_outputs:
+                print("Note: No audio outputs (likely no audio files assigned), but RIRs are available")
+                outputs = {}  # Create empty dict to avoid errors downstream
             
             self.node_results['renderer_output'] = outputs
             self.node_results['renderer_rir'] = rirs
@@ -423,17 +537,48 @@ class BlueprintExecutor:
         mixed_audio = effected_audio
         rir = rirs.get(receiver_name)
         
+        # Check if we actually have valid audio (not None and not empty)
+        has_valid_audio = (mixed_audio is not None and
+                           isinstance(mixed_audio, np.ndarray) and
+                           mixed_audio.size > 0)
+        
+        if not has_valid_audio:
+            print(f"Note: No valid audio to save for receiver '{receiver_name}'. "
+                  f"Audio outputs: {outputs}, Mixed audio type: {type(mixed_audio)}")
+        
         mic_type = 'mono' if self.receiver and not hasattr(self.receiver, 'order') else 'ambisonic'
         
-        if params.get('saveAudio', True) and mixed_audio is not None:
+        audio_file_path = None
+        if params.get('saveAudio', True) and has_valid_audio:
             output_filename = f"output_{mic_type}.wav"
-            output_path = os.path.join(output_dir, output_filename)
+            
+            # Make output_dir relative to web directory if not absolute
+            if not os.path.isabs(output_dir):
+                web_dir = Path(__file__).parent.parent
+                output_path = web_dir / output_dir / output_filename
+            else:
+                output_path = Path(output_dir) / output_filename
+            
+            # Create directory if it doesn't exist
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
             mixed_audio = mixed_audio / np.max(np.abs(mixed_audio))
             
             if mic_type == 'ambisonic':
-                wavfile.write(output_path, DEFAULT_SAMPLING_RATE, mixed_audio.astype(np.float32))
+                wavfile.write(str(output_path), DEFAULT_SAMPLING_RATE, mixed_audio.astype(np.float32))
             else:
-                wavfile.write(output_path, DEFAULT_SAMPLING_RATE, (mixed_audio * 32767).astype(np.int16))
+                wavfile.write(str(output_path), DEFAULT_SAMPLING_RATE, (mixed_audio * 32767).astype(np.int16))
+            
+            # Store the audio file path relative to web directory for the audio player
+            web_dir = Path(__file__).parent.parent
+            try:
+                audio_file_path = str(output_path.relative_to(web_dir))
+            except ValueError:
+                # If path is not relative to web_dir, use absolute path
+                audio_file_path = str(output_path)
+            
+            self.node_results['audio_file_path'] = audio_file_path
+            print(f"Saved audio file to: {output_path} (relative path: {audio_file_path})")
         
         if params.get('saveRIR', False) and rir is not None:
             rir_filename = f"rir_{mic_type}.wav"
@@ -475,7 +620,7 @@ class BlueprintHandler(BaseHTTPRequestHandler):
         self.end_headers()
     
     def do_GET(self):
-        """Serve the blueprint editor HTML"""
+        """Serve the blueprint editor HTML and audio files"""
         if self.path == '/' or self.path == '/blueprint_editor.html':
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
@@ -485,6 +630,63 @@ class BlueprintHandler(BaseHTTPRequestHandler):
             html_path = Path(__file__).parent / 'blueprint_editor.html'
             with open(html_path, 'r') as f:
                 self.wfile.write(f.read().encode())
+        elif self.path.startswith('/api/audio'):
+            # Serve audio files
+            parsed = urlparse(self.path)
+            query_params = parse_qs(parsed.query)
+            file_path = query_params.get('file', [None])[0]
+            
+            if file_path:
+                # Decode the file path
+                file_path = file_path.replace('%2F', '/').replace('%5C', '\\')
+                
+                # Make sure the path is relative to the project root
+                if not os.path.isabs(file_path):
+                    # Try multiple locations
+                    project_root = Path(__file__).parent.parent.parent
+                    web_dir = Path(__file__).parent.parent
+                    
+                    # Try in order:
+                    # 1. Relative to web directory (for outputs like outputs/radiosity/output_mono.wav)
+                    full_path = web_dir / file_path
+                    if not full_path.exists():
+                        # 2. Relative to project root (for outputs at project root)
+                        full_path = project_root / file_path
+                    if not full_path.exists():
+                        # 3. In examples directory
+                        full_path = project_root / 'examples' / file_path
+                else:
+                    full_path = Path(file_path)
+                
+                if full_path.exists() and full_path.suffix.lower() in ['.wav', '.mp3', '.ogg']:
+                    # Determine correct MIME type
+                    mime_type = 'audio/wav'
+                    if full_path.suffix.lower() == '.mp3':
+                        mime_type = 'audio/mpeg'
+                    elif full_path.suffix.lower() == '.ogg':
+                        mime_type = 'audio/ogg'
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', mime_type)
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.send_header('Content-Length', str(full_path.stat().st_size))
+                    self.send_header('Accept-Ranges', 'bytes')
+                    self.end_headers()
+                    
+                    with open(full_path, 'rb') as f:
+                        self.wfile.write(f.read())
+                else:
+                    self.send_response(404)
+                    self.send_header('Content-type', 'text/plain')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    error_msg = f'Audio file not found: {file_path} (tried: {full_path})'
+                    self.wfile.write(error_msg.encode())
+            else:
+                self.send_response(400)
+                self.send_header('Content-type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b'Missing file parameter')
         else:
             self.send_response(404)
             self.end_headers()

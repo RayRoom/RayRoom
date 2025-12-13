@@ -4,8 +4,8 @@ import json
 import inspect
 import webbrowser
 
-# Add parent directory to path to allow importing rayroom
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+# Add project root directory to path to allow importing rayroom
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 try:
     import rayroom.room.objects as objs
@@ -75,6 +75,7 @@ def main():
         template_path = os.path.join(
             os.path.dirname(__file__),
             '..',
+            '..',
             'rayroom',
             'room',
             'templates',
@@ -83,7 +84,7 @@ def main():
         with open(template_path, 'r') as f:
             template_content = f.read()
     except FileNotFoundError:
-        print("Template file not found.")
+        print(f"Template file not found at: {os.path.abspath(template_path)}")
         return
 
     # 3. Render Template (Simple string replace for now as Jinja might not be needed for just one variable,

@@ -271,6 +271,15 @@
         .status-bar.success {
             background: #0e7c0e;
         }
+
+        .audio-player-controls {
+            margin: 8px 0;
+        }
+
+        .audio-player-controls audio {
+            width: 100%;
+            margin: 8px 0;
+        }
     </style>
 </head>
 <body>
@@ -290,6 +299,7 @@
             <button onclick="addNode('metrics')">Metrics</button>
             <button onclick="addNode('effects')">Effects</button>
             <button onclick="addNode('output')">Output</button>
+            <button onclick="addNode('audioPlayer')">Audio Player</button>
         </div>
     </div>
 
@@ -440,13 +450,22 @@
                     { name: 'rir', type: 'rir' },
                     { name: 'metrics', type: 'metrics', optional: true }
                 ],
-                outputs: [],
+                outputs: [{ name: 'audio', type: 'audio' }],
                 params: {
                     outputDir: { type: 'text', label: 'Output Directory', default: 'outputs' },
                     saveAudio: { type: 'checkbox', label: 'Save Audio', default: true },
                     saveRIR: { type: 'checkbox', label: 'Save RIR', default: false },
                     saveMetrics: { type: 'checkbox', label: 'Save Metrics', default: true },
                     saveMesh: { type: 'checkbox', label: 'Save Mesh', default: false }
+                }
+            },
+            audioPlayer: {
+                title: 'Audio Player',
+                type: 'audioPlayer',
+                inputs: [{ name: 'audio', type: 'audio' }],
+                outputs: [],
+                params: {
+                    audioFile: { type: 'text', label: 'Audio File Path', default: '', readonly: true }
                 }
             }
         };
@@ -518,25 +537,44 @@
                 paramsToRender = template.getParams(currentRendererType);
             }
             
-            for (const [key, param] of Object.entries(paramsToRender)) {
-                html += `<div class="node-param">`;
-                html += `<label>${param.label}</label>`;
-                
-                if (param.type === 'select') {
-                    html += `<select data-node="${node.id}" data-param="${key}">`;
-                    param.options.forEach(opt => {
-                        html += `<option value="${opt}" ${node.params[key] === opt ? 'selected' : ''}>${opt}</option>`;
-                    });
-                    html += `</select>`;
-                } else if (param.type === 'checkbox') {
-                    html += `<input type="checkbox" data-node="${node.id}" data-param="${key}" ${node.params[key] ? 'checked' : ''}>`;
-                } else if (param.type === 'file') {
-                    html += `<input type="file" accept=".wav,.mp3" data-node="${node.id}" data-param="${key}">`;
-                } else {
-                    html += `<input type="${param.type}" data-node="${node.id}" data-param="${key}" value="${node.params[key] || (param.default !== undefined ? param.default : '')}">`;
+            // Special handling for audio player node
+            if (node.type === 'audioPlayer') {
+                html += `
+                    <div class="audio-player-controls" data-node="${node.id}">
+                        <audio id="audio-player-${node.id}" controls style="width: 100%; margin: 8px 0;">
+                            Your browser does not support the audio element.
+                        </audio>
+                        <div class="node-param">
+                            <label>Audio File</label>
+                            <input type="text" data-node="${node.id}" data-param="audioFile" 
+                                   value="${node.params.audioFile || ''}" readonly 
+                                   style="background: #1e1e1e; color: #858585; cursor: not-allowed;">
+                        </div>
+                    </div>
+                `;
+            } else {
+                for (const [key, param] of Object.entries(paramsToRender)) {
+                    html += `<div class="node-param">`;
+                    html += `<label>${param.label}</label>`;
+                    
+                    if (param.type === 'select') {
+                        html += `<select data-node="${node.id}" data-param="${key}">`;
+                        param.options.forEach(opt => {
+                            html += `<option value="${opt}" ${node.params[key] === opt ? 'selected' : ''}>${opt}</option>`;
+                        });
+                        html += `</select>`;
+                    } else if (param.type === 'checkbox') {
+                        html += `<input type="checkbox" data-node="${node.id}" data-param="${key}" ${node.params[key] ? 'checked' : ''}>`;
+                    } else if (param.type === 'file') {
+                        html += `<input type="file" accept=".wav,.mp3" data-node="${node.id}" data-param="${key}">`;
+                    } else {
+                        const readonly = param.readonly ? 'readonly style="background: #1e1e1e; color: #858585; cursor: not-allowed;"' : '';
+                        html += `<input type="${param.type}" data-node="${node.id}" data-param="${key}" 
+                                value="${node.params[key] || (param.default !== undefined ? param.default : '')}" ${readonly}>`;
+                    }
+                    
+                    html += `</div>`;
                 }
-                
-                html += `</div>`;
             }
 
             // Outputs
@@ -826,6 +864,11 @@
                 const result = await response.json();
                 if (result.success) {
                     showStatus('Pipeline executed successfully! Check output directory.', 'success');
+                    
+                    // Update audio player nodes with the generated audio file
+                    if (result.audioFile) {
+                        updateAudioPlayers(result.audioFile);
+                    }
                 } else {
                     showStatus('Error: ' + (result.error || 'Unknown error'), 'error');
                 }
@@ -986,6 +1029,10 @@
             outputNode.params.saveMesh = true;
             createNodeElement(outputNode);
 
+            // 6. Audio Player node
+            const audioPlayerNode = addNode('audioPlayer', startX + nodeSpacing * 5, startY + nodeSpacing);
+            createNodeElement(audioPlayerNode);
+
             // Create connections
             // Room -> Renderer (conveys room, sources, and receiver)
             connections.push({
@@ -1042,6 +1089,13 @@
                 type: 'rir'
             });
 
+            // Output -> Audio Player
+            connections.push({
+                from: { nodeId: outputNode.id, socket: 'output-0' },
+                to: { nodeId: audioPlayerNode.id, socket: 'input-0' },
+                type: 'audio'
+            });
+
             draw();
             showStatus('Default Radiosity pipeline loaded!', 'success');
         }
@@ -1083,6 +1137,57 @@
             if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNode) {
                 e.preventDefault();
                 deleteSelected();
+            }
+        }
+
+        function updateAudioPlayers(audioFilePath) {
+            console.log('Updating audio players with path:', audioFilePath);
+            
+            // Find all audio player nodes
+            const audioPlayerNodes = nodes.filter(n => n.type === 'audioPlayer');
+            
+            if (audioPlayerNodes.length === 0) {
+                console.log('No audio player nodes found');
+                return;
+            }
+            
+            // Update all audio players
+            for (const audioPlayerNode of audioPlayerNodes) {
+                const audioEl = document.getElementById(`audio-player-${audioPlayerNode.id}`);
+                const audioFileInput = document.querySelector(
+                    `[data-node="${audioPlayerNode.id}"][data-param="audioFile"]`
+                );
+                
+                if (audioEl && audioFilePath) {
+                    // Construct URL to serve the audio file
+                    // The path is relative to the web directory
+                    const audioUrl = `http://localhost:8000/api/audio?file=${encodeURIComponent(audioFilePath)}`;
+                    console.log('Setting audio source to:', audioUrl);
+                    
+                    audioEl.src = audioUrl;
+                    audioPlayerNode.params.audioFile = audioFilePath;
+                    
+                    if (audioFileInput) {
+                        audioFileInput.value = audioFilePath;
+                    }
+                    
+                    // Load the audio and handle errors
+                    audioEl.load();
+                    
+                    // Add event listeners for debugging
+                    audioEl.addEventListener('error', (e) => {
+                        console.error('Audio load error:', e);
+                        console.error('Audio element error:', audioEl.error);
+                        showStatus('Error loading audio file: ' + audioFilePath, 'error');
+                    });
+                    
+                    audioEl.addEventListener('loadeddata', () => {
+                        console.log('Audio loaded successfully:', audioFilePath);
+                        showStatus('Audio loaded successfully!', 'success');
+                    });
+                } else {
+                    console.log('Audio element or path not found:', {audioEl: !!audioEl, audioFilePath});
+                }
             }
         }
 
