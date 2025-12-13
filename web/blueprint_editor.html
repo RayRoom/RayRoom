@@ -280,12 +280,11 @@
         <button onclick="clearCanvas()" class="danger">Clear</button>
         <button onclick="saveBlueprint()">💾 Save</button>
         <button onclick="loadBlueprint()">📂 Load</button>
+        <button onclick="loadDefaultPipeline()">📋 Load Demo Radiosity</button>
         <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="handleFileLoad(event)">
         
         <div class="node-palette">
             <button onclick="addNode('room')">Room</button>
-            <button onclick="addNode('source')">Source</button>
-            <button onclick="addNode('receiver')">Receiver</button>
             <button onclick="addNode('renderer')">Renderer</button>
             <button onclick="addNode('audio')">Audio Input</button>
             <button onclick="addNode('metrics')">Metrics</button>
@@ -354,35 +353,11 @@
                     micType: { type: 'select', label: 'Mic Type', options: ['mono', 'ambisonic'] }
                 }
             },
-            source: {
-                title: 'Audio Source',
-                type: 'source',
-                inputs: [{ name: 'room', type: 'room' }],
-                outputs: [{ name: 'source', type: 'source' }],
-                params: {
-                    name: { type: 'text', label: 'Name', default: 'src1' },
-                    position: { type: 'text', label: 'Position (x,y,z)', default: '2,1,1.5' },
-                    gain: { type: 'number', label: 'Gain', default: 1.0 }
-                }
-            },
-            receiver: {
-                title: 'Receiver',
-                type: 'receiver',
-                inputs: [{ name: 'room', type: 'room' }],
-                outputs: [{ name: 'receiver', type: 'receiver' }],
-                params: {
-                    name: { type: 'text', label: 'Name', default: 'mic' },
-                    position: { type: 'text', label: 'Position (x,y,z)', default: '1,0.5,1.5' },
-                    micType: { type: 'select', label: 'Mic Type', options: ['mono', 'ambisonic'] }
-                }
-            },
             renderer: {
                 title: 'Renderer',
                 type: 'renderer',
                 inputs: [
-                    { name: 'room', type: 'room' },
-                    { name: 'sources', type: 'source', multiple: true },
-                    { name: 'receiver', type: 'receiver' }
+                    { name: 'room', type: 'room' }
                 ],
                 outputs: [{ name: 'output', type: 'audio' }, { name: 'rir', type: 'rir' }],
                 getParams: function(rendererType) {
@@ -432,7 +407,9 @@
                 inputs: [],
                 outputs: [{ name: 'audio', type: 'audio' }],
                 params: {
-                    file: { type: 'file', label: 'Audio File' }
+                    file: { type: 'file', label: 'Audio File' },
+                    sourceName: { type: 'text', label: 'Source Name', default: 'src1', placeholder: 'e.g., src1, src2, src_bg' },
+                    gain: { type: 'number', label: 'Gain', default: 1.0 }
                 }
             },
             metrics: {
@@ -891,13 +868,15 @@
             };
         }
 
-        function clearCanvas() {
-            if (confirm('Clear all nodes and connections?')) {
-                nodes = [];
-                connections = [];
-                document.getElementById('canvasContainer').querySelectorAll('.node').forEach(el => el.remove());
-                draw();
+        function clearCanvas(skipConfirm = false) {
+            if (!skipConfirm && !confirm('Clear all nodes and connections?')) {
+                return;
             }
+            nodes = [];
+            connections = [];
+            selectedNode = null;
+            document.getElementById('canvasContainer').querySelectorAll('.node').forEach(el => el.remove());
+            draw();
         }
 
         function saveBlueprint() {
@@ -943,6 +922,128 @@
 
             connections = blueprint.connections || [];
             draw();
+        }
+
+        function loadDefaultPipeline() {
+            if (nodes.length > 0 && !confirm('This will replace your current pipeline. Continue?')) {
+                return;
+            }
+
+            clearCanvas(true);
+            nodeIdCounter = 0;
+
+            // Create nodes with positions arranged in a logical flow
+            const nodeSpacing = 250;
+            const startX = 100;
+            const startY = 150;
+
+            // 1. Room node (includes sources and receiver implicitly)
+            const roomNode = addNode('room', startX, startY);
+            roomNode.params.roomType = 'DemoRoom';
+            roomNode.params.micType = 'mono';
+            createNodeElement(roomNode);
+
+            // 2. Three audio input nodes
+            const audio1Node = addNode('audio', startX + nodeSpacing, startY);
+            audio1Node.params.file = 'audios-trump-indextts15/speaker_1.wav';
+            audio1Node.params.sourceName = 'src1';
+            audio1Node.params.gain = 1.0;
+            createNodeElement(audio1Node);
+
+            const audio2Node = addNode('audio', startX + nodeSpacing, startY + nodeSpacing);
+            audio2Node.params.file = 'audios-trump-indextts15/speaker_2.wav';
+            audio2Node.params.sourceName = 'src2';
+            audio2Node.params.gain = 1.0;
+            createNodeElement(audio2Node);
+
+            const audioBgNode = addNode('audio', startX + nodeSpacing, startY + nodeSpacing * 2);
+            audioBgNode.params.file = 'audios-trump-indextts15/foreground.wav';
+            audioBgNode.params.sourceName = 'src_bg';
+            audioBgNode.params.gain = 0.1;
+            createNodeElement(audioBgNode);
+
+            // 3. Renderer node
+            const rendererNode = addNode('renderer', startX + nodeSpacing * 2, startY + nodeSpacing);
+            rendererNode.params.rendererType = 'RadiosityRenderer';
+            rendererNode.params.fs = 44100;
+            rendererNode.params.ismOrder = 2;
+            rendererNode.params.rirDuration = 1.5;
+            createNodeElement(rendererNode);
+
+            // 4. Metrics node
+            const metricsNode = addNode('metrics', startX + nodeSpacing * 3, startY + nodeSpacing);
+            metricsNode.params.acoustic = true;
+            metricsNode.params.psychoacoustic = false;
+            metricsNode.params.performance = true;
+            createNodeElement(metricsNode);
+
+            // 5. Output node
+            const outputNode = addNode('output', startX + nodeSpacing * 4, startY + nodeSpacing);
+            outputNode.params.outputDir = 'outputs/radiosity';
+            outputNode.params.saveAudio = true;
+            outputNode.params.saveRIR = false;
+            outputNode.params.saveMetrics = true;
+            outputNode.params.saveMesh = true;
+            createNodeElement(outputNode);
+
+            // Create connections
+            // Room -> Renderer (conveys room, sources, and receiver)
+            connections.push({
+                from: { nodeId: roomNode.id, socket: 'output-0' },
+                to: { nodeId: rendererNode.id, socket: 'input-0' },
+                type: 'room'
+            });
+
+            // Audio -> Renderer (audio files will be assigned to sources by name)
+            connections.push({
+                from: { nodeId: audio1Node.id, socket: 'output-0' },
+                to: { nodeId: rendererNode.id, socket: 'input-0' },
+                type: 'audio'
+            });
+            connections.push({
+                from: { nodeId: audio2Node.id, socket: 'output-0' },
+                to: { nodeId: rendererNode.id, socket: 'input-0' },
+                type: 'audio'
+            });
+            connections.push({
+                from: { nodeId: audioBgNode.id, socket: 'output-0' },
+                to: { nodeId: rendererNode.id, socket: 'input-0' },
+                type: 'audio'
+            });
+
+            // Renderer -> Metrics
+            connections.push({
+                from: { nodeId: rendererNode.id, socket: 'output-0' },
+                to: { nodeId: metricsNode.id, socket: 'input-0' },
+                type: 'audio'
+            });
+            connections.push({
+                from: { nodeId: rendererNode.id, socket: 'output-1' },
+                to: { nodeId: metricsNode.id, socket: 'input-1' },
+                type: 'rir'
+            });
+
+            // Metrics -> Output
+            connections.push({
+                from: { nodeId: metricsNode.id, socket: 'output-0' },
+                to: { nodeId: outputNode.id, socket: 'input-2' },
+                type: 'metrics'
+            });
+
+            // Renderer -> Output
+            connections.push({
+                from: { nodeId: rendererNode.id, socket: 'output-0' },
+                to: { nodeId: outputNode.id, socket: 'input-0' },
+                type: 'audio'
+            });
+            connections.push({
+                from: { nodeId: rendererNode.id, socket: 'output-1' },
+                to: { nodeId: outputNode.id, socket: 'input-1' },
+                type: 'rir'
+            });
+
+            draw();
+            showStatus('Default Radiosity pipeline loaded!', 'success');
         }
 
         function showStatus(message, type = 'info') {

@@ -173,8 +173,14 @@
                 </div>
             </div>
             <div class="control-group">
-                <label>Room Height (m)</label>
-                <input type="number" id="room-height" value="3.0" step="0.1" onchange="updateRoomHeight()">
+                <label>Room Dimensions</label>
+                <label style="font-size: 0.85em; font-weight: normal;">Width (m)</label>
+                <input type="number" id="room-width" value="4.0" step="0.1" min="0.1">
+                <label style="font-size: 0.85em; font-weight: normal; margin-top: 5px;">Length (m)</label>
+                <input type="number" id="room-length" value="5.0" step="0.1" min="0.1">
+                <label style="font-size: 0.85em; font-weight: normal; margin-top: 5px;">Height (m)</label>
+                <input type="number" id="room-height" value="3.0" step="0.1" min="0.1" onchange="updateRoomHeight()">
+                <button onclick="createCustomRoom()" style="margin-top: 10px; background-color: #27ae60;">Create Room with Custom Dimensions</button>
             </div>
             
             <div class="control-group">
@@ -897,6 +903,41 @@ window.createShoebox = function(w, d) {
     state.camera2d.x = 0;
     state.camera2d.y = 0;
     state.camera2d.zoom = Math.min(canvas2d.width/w, canvas2d.height/d) * 0.8;
+    calculateRoomStats();
+    updateSceneList();
+};
+
+window.createCustomRoom = function() {
+    const width = parseFloat(document.getElementById('room-width').value);
+    const length = parseFloat(document.getElementById('room-length').value);
+    const height = parseFloat(document.getElementById('room-height').value);
+    
+    if (isNaN(width) || width <= 0) {
+        alert('Please enter a valid width (greater than 0)');
+        return;
+    }
+    if (isNaN(length) || length <= 0) {
+        alert('Please enter a valid length (greater than 0)');
+        return;
+    }
+    if (isNaN(height) || height <= 0) {
+        alert('Please enter a valid height (greater than 0)');
+        return;
+    }
+    
+    // Create the room with custom dimensions
+    state.room.walls = [
+        {x: -width/2, y: -length/2},
+        {x: width/2, y: -length/2},
+        {x: width/2, y: length/2},
+        {x: -width/2, y: length/2}
+    ];
+    state.room.height = height;
+    state.objects = []; // Clear objects on new room
+    selectObject(null);
+    state.camera2d.x = 0;
+    state.camera2d.y = 0;
+    state.camera2d.zoom = Math.min(canvas2d.width/width, canvas2d.height/length) * 0.8;
     calculateRoomStats();
     updateSceneList();
 };

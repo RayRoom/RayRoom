@@ -49,10 +49,12 @@ class BlueprintExecutor:
         try:
             # Build execution graph
             execution_order = self._topological_sort(blueprint)
+            print(f"Execution order: {execution_order}")
             
             # Execute nodes in order
             for node_id in execution_order:
                 node_data = next(n for n in blueprint['nodes'] if n['id'] == node_id)
+                print(f"Executing node {node_id}: {node_data['type']}")
                 self._execute_node(node_data, blueprint)
             
             return {'success': True, 'message': 'Pipeline executed successfully'}
@@ -106,10 +108,6 @@ class BlueprintExecutor:
         
         if node_type == 'room':
             self._execute_room_node(params)
-        elif node_type == 'source':
-            self._execute_source_node(node_id, params, blueprint)
-        elif node_type == 'receiver':
-            self._execute_receiver_node(params, blueprint)
         elif node_type == 'renderer':
             self._execute_renderer_node(params, blueprint)
         elif node_type == 'audio':
@@ -205,44 +203,66 @@ class BlueprintExecutor:
         else:
             self.renderer = renderer_class(self.room, fs=fs)
         
-        # Assign audio files to sources based on connections
-        # Find all audio nodes connected to sources
+        # Assign audio files to sources based on connections to renderer
+        # Find all audio nodes connected to the renderer
         renderer_node_id = next(n['id'] for n in blueprint['nodes'] if n['type'] == 'renderer')
         
-        # Map audio nodes to sources via connections
-        audio_to_source_map = {}
+        print(f"Available sources: {list(self.sources.keys())}")
+        print(f"Receiver: {self.receiver.name if self.receiver else 'None'}")
+        
+        # Map audio nodes to sources by sourceName parameter
+        audio_assigned = False
         for conn in blueprint.get('connections', []):
             from_node = next((n for n in blueprint['nodes'] if n['id'] == conn['from']['nodeId']), None)
             to_node = next((n for n in blueprint['nodes'] if n['id'] == conn['to']['nodeId']), None)
             
-            if from_node and from_node['type'] == 'audio' and to_node and to_node['type'] == 'source':
-                source_node_id = to_node['id']
+            # Audio nodes connected to renderer
+            if (from_node and from_node['type'] == 'audio' and
+                    to_node and to_node['id'] == renderer_node_id):
+                source_name = from_node['params'].get('sourceName', '')
                 audio_file = from_node['params'].get('file', '')
-                if audio_file:
-                    audio_to_source_map[source_node_id] = {
-                        'file': audio_file,
-                        'gain': float(from_node['params'].get('gain', 1.0))
-                    }
-        
-        # Assign audio to sources
-        for source_node_id, audio_info in audio_to_source_map.items():
-            source_node = next(n for n in blueprint['nodes'] if n['id'] == source_node_id)
-            source_name = source_node['params'].get('name', f'src_{source_node_id}')
-            if source_name in self.sources:
-                audio_file = audio_info['file']
-                # Try relative path from examples directory
-                examples_dir = Path(__file__).parent.parent / 'examples'
-                if not os.path.isabs(audio_file):
-                    audio_file = str(examples_dir / audio_file)
+                gain = float(from_node['params'].get('gain', 1.0))
                 
-                if os.path.exists(audio_file):
-                    self.renderer.set_source_audio(
-                        self.sources[source_name],
-                        audio_file,
-                        gain=audio_info['gain']
-                    )
-                else:
-                    print(f"Warning: Audio file not found: {audio_file}")
+                print(f"Processing audio node: file={audio_file}, sourceName={source_name}, gain={gain}")
+                
+                if audio_file and source_name:
+                    # Try relative path from examples directory
+                    examples_dir = Path(__file__).parent.parent / 'examples'
+                    if not os.path.isabs(audio_file):
+                        audio_file = str(examples_dir / audio_file)
+                    
+                    if source_name in self.sources:
+                        if os.path.exists(audio_file):
+                            print(f"Assigning audio file {audio_file} to source {source_name}")
+                            self.renderer.set_source_audio(
+                                self.sources[source_name],
+                                audio_file,
+                                gain=gain
+                            )
+                            audio_assigned = True
+                        else:
+                            print(f"Warning: Audio file not found: {audio_file}")
+                            # Try alternative paths
+                            alt_paths = [
+                                str(examples_dir / 'audios-trump-indextts15' / os.path.basename(audio_file)),
+                                str(examples_dir / 'audios-indextts' / os.path.basename(audio_file)),
+                                str(examples_dir / 'audios' / os.path.basename(audio_file)),
+                            ]
+                            for alt_path in alt_paths:
+                                if os.path.exists(alt_path):
+                                    print(f"Found audio file at alternative path: {alt_path}")
+                                    self.renderer.set_source_audio(
+                                        self.sources[source_name],
+                                        alt_path,
+                                        gain=gain
+                                    )
+                                    audio_assigned = True
+                                    break
+                    else:
+                        print(f"Warning: Source '{source_name}' not found in room. Available sources: {list(self.sources.keys())}")
+        
+        if not audio_assigned:
+            print("Warning: No audio files were assigned to sources. Renderer will proceed without audio.")
         
         # Render
         ism_order = int(params.get('ismOrder', 2))
@@ -250,32 +270,41 @@ class BlueprintExecutor:
         max_hops = int(params.get('maxHops', 50))
         rir_duration = float(params.get('rirDuration', 1.5))
         
-        with PerformanceMonitor() as monitor:
-            if renderer_type == 'RadiosityRenderer':
-                outputs, rirs = self.renderer.render(
-                    ism_order=ism_order,
-                    rir_duration=rir_duration
-                )
-            elif renderer_type in ['HybridRenderer', 'SpectralRenderer']:
-                outputs, _, rirs = self.renderer.render(
-                    n_rays=n_rays,
-                    max_hops=max_hops,
-                    rir_duration=rir_duration,
-                    ism_order=ism_order
-                )
-            else:
-                outputs, rirs = self.renderer.render(
-                    n_rays=n_rays,
-                    max_hops=max_hops,
-                    rir_duration=rir_duration
-                )
-        
-        self.node_results['renderer_output'] = outputs
-        self.node_results['renderer_rir'] = rirs
-        self.node_results['performance'] = {
-            'runtime_s': monitor.runtime_s,
-            'peak_memory_mb': monitor.peak_memory_mb
-        }
+        try:
+            with PerformanceMonitor() as monitor:
+                if renderer_type == 'RadiosityRenderer':
+                    outputs, rirs = self.renderer.render(
+                        ism_order=ism_order,
+                        rir_duration=rir_duration
+                    )
+                elif renderer_type in ['HybridRenderer', 'SpectralRenderer']:
+                    outputs, _, rirs = self.renderer.render(
+                        n_rays=n_rays,
+                        max_hops=max_hops,
+                        rir_duration=rir_duration,
+                        ism_order=ism_order
+                    )
+                else:
+                    outputs, rirs = self.renderer.render(
+                        n_rays=n_rays,
+                        max_hops=max_hops,
+                        rir_duration=rir_duration
+                    )
+            
+            if not outputs or not rirs:
+                raise ValueError("Renderer produced empty outputs or RIRs")
+            
+            self.node_results['renderer_output'] = outputs
+            self.node_results['renderer_rir'] = rirs
+            self.node_results['performance'] = {
+                'runtime_s': monitor.runtime_s,
+                'peak_memory_mb': monitor.peak_memory_mb
+            }
+        except Exception as e:
+            print(f"Error during rendering: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
     
     def _execute_audio_node(self, node_id, params):
         """Handle audio input node"""
@@ -290,14 +319,38 @@ class BlueprintExecutor:
         rirs = self.node_results.get('renderer_rir', {})
         
         if not outputs or not rirs:
-            raise ValueError("Renderer must be executed before metrics")
+            raise ValueError(
+                f"Renderer must be executed before metrics. "
+                f"Outputs: {bool(outputs)}, RIRs: {bool(rirs)}"
+            )
         
-        receiver_name = self.receiver.name if self.receiver else 'mic'
+        # Try to find the receiver name - check common names
+        receiver_name = None
+        if self.receiver:
+            receiver_name = self.receiver.name
+        else:
+            # Try common receiver names
+            for name in ['MonoMic', 'AmbiMic', 'mic', 'receiver']:
+                if name in outputs:
+                    receiver_name = name
+                    break
+        
+        if not receiver_name:
+            # Use first available receiver
+            receiver_name = list(outputs.keys())[0] if outputs else None
+        
+        if not receiver_name:
+            raise ValueError(f"No receiver found. Available outputs: {list(outputs.keys())}")
+        
         mixed_audio = outputs.get(receiver_name)
         rir = rirs.get(receiver_name)
         
         if mixed_audio is None or rir is None:
-            raise ValueError("No audio or RIR available for metrics")
+            raise ValueError(
+                f"No audio or RIR available for receiver '{receiver_name}'. "
+                f"Available outputs: {list(outputs.keys())}, "
+                f"RIRs: {list(rirs.keys())}"
+            )
         
         metrics = {}
         
