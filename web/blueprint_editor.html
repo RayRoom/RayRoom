@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RayRoom Blueprint Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        .toolbar {
+            background: #252526;
+            border-bottom: 1px solid #3e3e42;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .toolbar button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .toolbar button:hover {
+            background: #1177bb;
+        }
+
+        .toolbar button.danger {
+            background: #a1260d;
+        }
+
+        .toolbar button.danger:hover {
+            background: #c52e0f;
+        }
+
+        .toolbar button.delete {
+            background: #a1260d;
+        }
+
+        .toolbar button.delete:hover {
+            background: #c52e0f;
+        }
+
+        .toolbar .node-palette {
+            margin-left: auto;
+            display: flex;
+            gap: 5px;
+        }
+
+        .node-palette button {
+            background: #3c3c3c;
+            font-size: 12px;
+            padding: 6px 12px;
+        }
+
+        .node-palette button:hover {
+            background: #4a4a4a;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 50px);
+            overflow: hidden;
+            background: #1e1e1e;
+            background-image: 
+                linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        #canvas {
+            cursor: crosshair;
+        }
+
+        .node {
+            position: absolute;
+            min-width: 200px;
+            background: #2d2d30;
+            border: 2px solid #3e3e42;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: move;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        .node input,
+        .node select {
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+        }
+
+        .node.selected {
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.3);
+        }
+
+        .node-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .node-type {
+            font-size: 11px;
+            color: #858585;
+            text-transform: uppercase;
+        }
+
+        .node-title {
+            font-size: 14px;
+            color: #e0e0e0;
+        }
+
+        .node-body {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .node-input, .node-output {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .socket {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #3e3e42;
+            background: #2d2d30;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .socket.input {
+            background: #4ec9b0;
+            border-color: #4ec9b0;
+        }
+
+        .socket.output {
+            background: #569cd6;
+            border-color: #569cd6;
+        }
+
+        .socket:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .socket-label {
+            color: #cccccc;
+        }
+
+        .node-param {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .node-param label {
+            font-size: 11px;
+            color: #858585;
+        }
+
+        .node-param input,
+        .node-param select {
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            color: #e0e0e0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .node-param input:focus,
+        .node-param select:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+
+        .connection-line {
+            pointer-events: none;
+            stroke: #569cd6;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .connection-line.selected {
+            stroke: #007acc;
+            stroke-width: 3;
+        }
+
+        .context-menu {
+            position: absolute;
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 4px;
+            z-index: 10000;
+            min-width: 200px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .context-menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #e0e0e0;
+        }
+
+        .context-menu-item:hover {
+            background: #2a2d2e;
+        }
+
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #007acc;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+            display: none;
+        }
+
+        .status-bar.show {
+            display: block;
+        }
+
+        .status-bar.error {
+            background: #a1260d;
+        }
+
+        .status-bar.success {
+            background: #0e7c0e;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button onclick="executePipeline()">▶ Execute Pipeline</button>
+        <button onclick="deleteSelected()" class="delete">🗑 Delete Selected</button>
+        <button onclick="clearCanvas()" class="danger">Clear</button>
+        <button onclick="saveBlueprint()">💾 Save</button>
+        <button onclick="loadBlueprint()">📂 Load</button>
+        <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="handleFileLoad(event)">
+        
+        <div class="node-palette">
+            <button onclick="addNode('room')">Room</button>
+            <button onclick="addNode('source')">Source</button>
+            <button onclick="addNode('receiver')">Receiver</button>
+            <button onclick="addNode('renderer')">Renderer</button>
+            <button onclick="addNode('audio')">Audio Input</button>
+            <button onclick="addNode('metrics')">Metrics</button>
+            <button onclick="addNode('effects')">Effects</button>
+            <button onclick="addNode('output')">Output</button>
+        </div>
+    </div>
+
+    <div class="canvas-container" id="canvasContainer">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="status-bar" id="statusBar"></div>
+
+    <script>
+        // Global state
+        let nodes = [];
+        let connections = [];
+        let selectedNode = null;
+        let dragging = false;
+        let connecting = null;
+        let nodeIdCounter = 0;
+        let canvas, ctx;
+        let offsetX = 0, offsetY = 0;
+        let scale = 1;
+
+        // Initialize canvas
+        function initCanvas() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            canvas.addEventListener('mousedown', onMouseDown);
+            canvas.addEventListener('wheel', onWheel);
+            canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+            
+            // Use document-level events for dragging so it works even outside canvas
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            document.addEventListener('keydown', onKeyDown);
+            
+            // Prevent text selection during drag
+            document.addEventListener('selectstart', (e) => {
+                if (dragging || connecting) {
+                    e.preventDefault();
+                }
+            });
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('canvasContainer');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            draw();
+        }
+
+        // Node definitions
+        const nodeTemplates = {
+            room: {
+                title: 'Room',
+                type: 'room',
+                inputs: [],
+                outputs: [{ name: 'room', type: 'room' }],
+                params: {
+                    roomType: { type: 'select', label: 'Room Type', options: ['DemoRoom', 'TestBenchRoom', 'MedicalRoom8M', 'MedicalRoom12M', 'Custom'] },
+                    micType: { type: 'select', label: 'Mic Type', options: ['mono', 'ambisonic'] }
+                }
+            },
+            source: {
+                title: 'Audio Source',
+                type: 'source',
+                inputs: [{ name: 'room', type: 'room' }],
+                outputs: [{ name: 'source', type: 'source' }],
+                params: {
+                    name: { type: 'text', label: 'Name', default: 'src1' },
+                    position: { type: 'text', label: 'Position (x,y,z)', default: '2,1,1.5' },
+                    gain: { type: 'number', label: 'Gain', default: 1.0 }
+                }
+            },
+            receiver: {
+                title: 'Receiver',
+                type: 'receiver',
+                inputs: [{ name: 'room', type: 'room' }],
+                outputs: [{ name: 'receiver', type: 'receiver' }],
+                params: {
+                    name: { type: 'text', label: 'Name', default: 'mic' },
+                    position: { type: 'text', label: 'Position (x,y,z)', default: '1,0.5,1.5' },
+                    micType: { type: 'select', label: 'Mic Type', options: ['mono', 'ambisonic'] }
+                }
+            },
+            renderer: {
+                title: 'Renderer',
+                type: 'renderer',
+                inputs: [
+                    { name: 'room', type: 'room' },
+                    { name: 'sources', type: 'source', multiple: true },
+                    { name: 'receiver', type: 'receiver' }
+                ],
+                outputs: [{ name: 'output', type: 'audio' }, { name: 'rir', type: 'rir' }],
+                getParams: function(rendererType) {
+                    const baseParams = {
+                        rendererType: { type: 'select', label: 'Renderer', options: ['HybridRenderer', 'RadiosityRenderer', 'SpectralRenderer', 'RaytracingRenderer'] },
+                        fs: { type: 'number', label: 'Sample Rate', default: 44100 },
+                        rirDuration: { type: 'number', label: 'RIR Duration (s)', default: 1.5 }
+                    };
+                    
+                    if (rendererType === 'RadiosityRenderer') {
+                        return {
+                            ...baseParams,
+                            ismOrder: { type: 'number', label: 'ISM Order', default: 2 }
+                        };
+                    } else if (rendererType === 'RaytracingRenderer') {
+                        return {
+                            ...baseParams,
+                            nRays: { type: 'number', label: 'N Rays', default: 20000 },
+                            maxHops: { type: 'number', label: 'Max Hops', default: 50 }
+                        };
+                    } else if (rendererType === 'HybridRenderer' || rendererType === 'SpectralRenderer') {
+                        return {
+                            ...baseParams,
+                            temperature: { type: 'number', label: 'Temperature (°C)', default: 20.0 },
+                            humidity: { type: 'number', label: 'Humidity (%)', default: 50.0 },
+                            ismOrder: { type: 'number', label: 'ISM Order', default: 2 },
+                            nRays: { type: 'number', label: 'N Rays', default: 20000 },
+                            maxHops: { type: 'number', label: 'Max Hops', default: 50 }
+                        };
+                    }
+                    return baseParams;
+                },
+                params: {
+                    rendererType: { type: 'select', label: 'Renderer', options: ['HybridRenderer', 'RadiosityRenderer', 'SpectralRenderer', 'RaytracingRenderer'] },
+                    fs: { type: 'number', label: 'Sample Rate', default: 44100 },
+                    temperature: { type: 'number', label: 'Temperature (°C)', default: 20.0 },
+                    humidity: { type: 'number', label: 'Humidity (%)', default: 50.0 },
+                    ismOrder: { type: 'number', label: 'ISM Order', default: 2 },
+                    nRays: { type: 'number', label: 'N Rays', default: 20000 },
+                    maxHops: { type: 'number', label: 'Max Hops', default: 50 },
+                    rirDuration: { type: 'number', label: 'RIR Duration (s)', default: 1.5 }
+                }
+            },
+            audio: {
+                title: 'Audio Input',
+                type: 'audio',
+                inputs: [],
+                outputs: [{ name: 'audio', type: 'audio' }],
+                params: {
+                    file: { type: 'file', label: 'Audio File' }
+                }
+            },
+            metrics: {
+                title: 'Metrics',
+                type: 'metrics',
+                inputs: [{ name: 'audio', type: 'audio' }, { name: 'rir', type: 'rir' }],
+                outputs: [{ name: 'metrics', type: 'metrics' }],
+                params: {
+                    acoustic: { type: 'checkbox', label: 'Acoustic Metrics', default: true },
+                    psychoacoustic: { type: 'checkbox', label: 'Psychoacoustic', default: false },
+                    performance: { type: 'checkbox', label: 'Performance', default: false }
+                }
+            },
+            effects: {
+                title: 'Effects',
+                type: 'effects',
+                inputs: [{ name: 'audio', type: 'audio' }],
+                outputs: [{ name: 'audio', type: 'audio' }],
+                params: {
+                    effect: { type: 'select', label: 'Effect', options: ['original', 'reverb', 'echo', 'lowpass', 'highpass'] }
+                }
+            },
+            output: {
+                title: 'Output',
+                type: 'output',
+                inputs: [
+                    { name: 'audio', type: 'audio' },
+                    { name: 'rir', type: 'rir' },
+                    { name: 'metrics', type: 'metrics', optional: true }
+                ],
+                outputs: [],
+                params: {
+                    outputDir: { type: 'text', label: 'Output Directory', default: 'outputs' },
+                    saveAudio: { type: 'checkbox', label: 'Save Audio', default: true },
+                    saveRIR: { type: 'checkbox', label: 'Save RIR', default: false },
+                    saveMetrics: { type: 'checkbox', label: 'Save Metrics', default: true },
+                    saveMesh: { type: 'checkbox', label: 'Save Mesh', default: false }
+                }
+            }
+        };
+
+        // Node creation
+        function addNode(type, x = null, y = null) {
+            const template = nodeTemplates[type];
+            if (!template) return;
+
+            const node = {
+                id: nodeIdCounter++,
+                type: type,
+                title: template.title,
+                x: x || Math.random() * (canvas.width - 250) + 50,
+                y: y || Math.random() * (canvas.height - 200) + 50,
+                inputs: template.inputs.map(i => ({ ...i })),
+                outputs: template.outputs.map(o => ({ ...o })),
+                params: {}
+            };
+
+            // Initialize params with defaults
+            for (const [key, param] of Object.entries(template.params)) {
+                node.params[key] = param.default !== undefined ? param.default : '';
+            }
+
+            nodes.push(node);
+            createNodeElement(node);
+            draw();
+            return node;
+        }
+
+        function createNodeElement(node) {
+            // Create DOM element for node
+            const container = document.getElementById('canvasContainer');
+            let nodeEl = document.getElementById(`node-${node.id}`);
+            
+            if (!nodeEl) {
+                nodeEl = document.createElement('div');
+                nodeEl.id = `node-${node.id}`;
+                nodeEl.className = 'node';
+                container.appendChild(nodeEl);
+            }
+
+            const template = nodeTemplates[node.type];
+            let html = `
+                <div class="node-header">
+                    <div>
+                        <div class="node-title">${node.title}</div>
+                        <div class="node-type">${node.type}</div>
+                    </div>
+                </div>
+                <div class="node-body">
+            `;
+
+            // Inputs
+            node.inputs.forEach((input, idx) => {
+                html += `
+                    <div class="node-input">
+                        <div class="socket input" data-node="${node.id}" data-socket="input-${idx}" data-type="${input.type}"></div>
+                        <span class="socket-label">${input.name}${input.multiple ? ' (multiple)' : ''}</span>
+                    </div>
+                `;
+            });
+
+            // Parameters - handle dynamic params for renderer nodes
+            let paramsToRender = template.params;
+            if (node.type === 'renderer' && template.getParams) {
+                const currentRendererType = node.params.rendererType || 'HybridRenderer';
+                paramsToRender = template.getParams(currentRendererType);
+            }
+            
+            for (const [key, param] of Object.entries(paramsToRender)) {
+                html += `<div class="node-param">`;
+                html += `<label>${param.label}</label>`;
+                
+                if (param.type === 'select') {
+                    html += `<select data-node="${node.id}" data-param="${key}">`;
+                    param.options.forEach(opt => {
+                        html += `<option value="${opt}" ${node.params[key] === opt ? 'selected' : ''}>${opt}</option>`;
+                    });
+                    html += `</select>`;
+                } else if (param.type === 'checkbox') {
+                    html += `<input type="checkbox" data-node="${node.id}" data-param="${key}" ${node.params[key] ? 'checked' : ''}>`;
+                } else if (param.type === 'file') {
+                    html += `<input type="file" accept=".wav,.mp3" data-node="${node.id}" data-param="${key}">`;
+                } else {
+                    html += `<input type="${param.type}" data-node="${node.id}" data-param="${key}" value="${node.params[key] || (param.default !== undefined ? param.default : '')}">`;
+                }
+                
+                html += `</div>`;
+            }
+
+            // Outputs
+            node.outputs.forEach((output, idx) => {
+                html += `
+                    <div class="node-output">
+                        <span class="socket-label">${output.name}</span>
+                        <div class="socket output" data-node="${node.id}" data-socket="output-${idx}" data-type="${output.type}"></div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            nodeEl.innerHTML = html;
+            nodeEl.style.left = node.x + 'px';
+            nodeEl.style.top = node.y + 'px';
+
+            // Event listeners
+            nodeEl.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                if (e.target.classList.contains('socket')) {
+                    e.preventDefault();
+                    startConnection(e, nodeEl);
+                } else if (!e.target.tagName.match(/^(INPUT|SELECT|BUTTON)$/i)) {
+                    e.preventDefault();
+                    selectNode(node.id);
+                    startDrag(e, node, nodeEl);
+                }
+            });
+
+            // Parameter change listeners
+            nodeEl.querySelectorAll('[data-param]').forEach(el => {
+                el.addEventListener('change', (e) => {
+                    const param = e.target.dataset.param;
+                    if (e.target.type === 'checkbox') {
+                        node.params[param] = e.target.checked;
+                    } else if (e.target.type === 'file') {
+                        node.params[param] = e.target.files[0] ? e.target.files[0].name : '';
+                    } else {
+                        node.params[param] = e.target.value;
+                    }
+                    
+                    // Special handling for renderer type changes
+                    if (node.type === 'renderer' && param === 'rendererType') {
+                        // Preserve existing values for params that will be removed
+                        const oldParams = { ...node.params };
+                        
+                        // Get new params based on renderer type
+                        const template = nodeTemplates.renderer;
+                        const newParams = template.getParams(e.target.value);
+                        
+                        // Update node params - keep existing values if they exist in new params
+                        const updatedParams = { rendererType: e.target.value };
+                        for (const [key, paramDef] of Object.entries(newParams)) {
+                            if (key !== 'rendererType') {
+                                updatedParams[key] = oldParams[key] !== undefined ? oldParams[key] : (paramDef.default !== undefined ? paramDef.default : '');
+                            }
+                        }
+                        node.params = updatedParams;
+                        
+                        // Recreate the node element with new parameters
+                        createNodeElement(node);
+                    }
+                });
+            });
+        }
+
+        function selectNode(nodeId) {
+            nodes.forEach(n => {
+                const el = document.getElementById(`node-${n.id}`);
+                if (el) {
+                    el.classList.toggle('selected', n.id === nodeId);
+                }
+            });
+            selectedNode = nodes.find(n => n.id === nodeId);
+        }
+
+        function startDrag(e, node, nodeEl) {
+            const container = document.getElementById('canvasContainer');
+            const containerRect = container.getBoundingClientRect();
+            const nodeRect = nodeEl.getBoundingClientRect();
+            
+            dragging = {
+                node,
+                offsetX: e.clientX - nodeRect.left,
+                offsetY: e.clientY - nodeRect.top,
+                containerRect: containerRect
+            };
+            
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function startConnection(e, nodeEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            const socket = e.target;
+            const nodeId = parseInt(socket.dataset.node);
+            const socketType = socket.dataset.socket;
+            const dataType = socket.dataset.type;
+            const isOutput = socket.classList.contains('output');
+            const container = document.getElementById('canvasContainer');
+            const containerRect = container.getBoundingClientRect();
+
+            connecting = {
+                nodeId,
+                socketType,
+                dataType,
+                isOutput,
+                x: e.clientX - containerRect.left,
+                y: e.clientY - containerRect.top
+            };
+        }
+
+        // Mouse events
+        function onMouseDown(e) {
+            if (e.button === 2) { // Right click
+                showContextMenu(e.clientX, e.clientY);
+            }
+        }
+
+        function onMouseMove(e) {
+            if (dragging) {
+                e.preventDefault();
+                const container = document.getElementById('canvasContainer');
+                const containerRect = container.getBoundingClientRect();
+                
+                // Calculate position relative to container
+                const x = e.clientX - containerRect.left - dragging.offsetX;
+                const y = e.clientY - containerRect.top - dragging.offsetY;
+                
+                // Clamp to container bounds
+                const nodeEl = document.getElementById(`node-${dragging.node.id}`);
+                if (nodeEl) {
+                    const nodeRect = nodeEl.getBoundingClientRect();
+                    const maxX = containerRect.width - nodeRect.width;
+                    const maxY = containerRect.height - nodeRect.height;
+                    
+                    dragging.node.x = Math.max(0, Math.min(x, maxX));
+                    dragging.node.y = Math.max(0, Math.min(y, maxY));
+                    
+                    nodeEl.style.left = dragging.node.x + 'px';
+                    nodeEl.style.top = dragging.node.y + 'px';
+                }
+                draw();
+            } else if (connecting) {
+                const container = document.getElementById('canvasContainer');
+                const containerRect = container.getBoundingClientRect();
+                connecting.x = e.clientX - containerRect.left;
+                connecting.y = e.clientY - containerRect.top;
+                draw();
+            }
+        }
+
+        function onMouseUp(e) {
+            if (connecting) {
+                e.preventDefault();
+                const socket = document.elementFromPoint(e.clientX, e.clientY);
+                if (socket && socket.classList.contains('socket')) {
+                    const targetNodeId = parseInt(socket.dataset.node);
+                    const targetSocketType = socket.dataset.socket;
+                    const targetDataType = socket.dataset.type;
+                    const targetIsOutput = socket.classList.contains('output');
+
+                    if (connecting.isOutput !== targetIsOutput && 
+                        connecting.dataType === targetDataType &&
+                        connecting.nodeId !== targetNodeId) {
+                        // Check if connection already exists
+                        const exists = connections.some(conn => 
+                            conn.from.nodeId === connecting.nodeId &&
+                            conn.from.socket === connecting.socketType &&
+                            conn.to.nodeId === targetNodeId &&
+                            conn.to.socket === targetSocketType
+                        );
+                        
+                        if (!exists) {
+                            // Create connection
+                            connections.push({
+                                from: { nodeId: connecting.nodeId, socket: connecting.socketType },
+                                to: { nodeId: targetNodeId, socket: targetSocketType },
+                                type: connecting.dataType
+                            });
+                        }
+                    }
+                }
+                connecting = null;
+                draw();
+            }
+            if (dragging) {
+                dragging = null;
+            }
+        }
+
+        function onWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            scale *= delta;
+            draw();
+        }
+
+        // Drawing
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw connections
+            connections.forEach(conn => {
+                const fromNode = nodes.find(n => n.id === conn.from.nodeId);
+                const toNode = nodes.find(n => n.id === conn.to.nodeId);
+                if (!fromNode || !toNode) return;
+
+                const fromSocket = getSocketPosition(fromNode, conn.from.socket, true);
+                const toSocket = getSocketPosition(toNode, conn.to.socket, false);
+
+                drawConnection(fromSocket, toSocket);
+            });
+
+            // Draw connecting line
+            if (connecting) {
+                const fromNode = nodes.find(n => n.id === connecting.nodeId);
+                if (fromNode) {
+                    const fromSocket = getSocketPosition(fromNode, connecting.socketType, connecting.isOutput);
+                    const rect = canvas.getBoundingClientRect();
+                    drawConnection(fromSocket, {
+                        x: connecting.x - rect.left,
+                        y: connecting.y - rect.top
+                    });
+                }
+            }
+        }
+
+        function getSocketPosition(node, socketType, isOutput) {
+            const nodeEl = document.getElementById(`node-${node.id}`);
+            if (!nodeEl) return { x: node.x, y: node.y };
+
+            const socket = nodeEl.querySelector(`[data-socket="${socketType}"]`);
+            if (!socket) return { x: node.x, y: node.y };
+
+            const rect = nodeEl.getBoundingClientRect();
+            const socketRect = socket.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+
+            return {
+                x: socketRect.left + socketRect.width / 2 - canvasRect.left,
+                y: socketRect.top + socketRect.height / 2 - canvasRect.top
+            };
+        }
+
+        function drawConnection(from, to) {
+            ctx.beginPath();
+            ctx.moveTo(from.x, from.y);
+            
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const cp1x = from.x + dx * 0.5;
+            const cp1y = from.y;
+            const cp2x = from.x + dx * 0.5;
+            const cp2y = to.y;
+
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, to.x, to.y);
+            ctx.strokeStyle = '#569cd6';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function showContextMenu(x, y) {
+            // Implementation for context menu
+        }
+
+        // Pipeline execution
+        async function executePipeline() {
+            showStatus('Executing pipeline...', 'info');
+            
+            try {
+                const blueprint = serializeBlueprint();
+                
+                // Validate pipeline
+                if (!validatePipeline(blueprint)) {
+                    return;
+                }
+                
+                const response = await fetch('http://localhost:8000/api/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(blueprint)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showStatus('Pipeline executed successfully! Check output directory.', 'success');
+                } else {
+                    showStatus('Error: ' + (result.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message + '. Make sure the server is running.', 'error');
+            }
+        }
+        
+        function validatePipeline(blueprint) {
+            const nodes = blueprint.nodes;
+            const hasRoom = nodes.some(n => n.type === 'room');
+            const hasRenderer = nodes.some(n => n.type === 'renderer');
+            const hasOutput = nodes.some(n => n.type === 'output');
+            
+            if (!hasRoom) {
+                showStatus('Error: Pipeline must have a Room node', 'error');
+                return false;
+            }
+            if (!hasRenderer) {
+                showStatus('Error: Pipeline must have a Renderer node', 'error');
+                return false;
+            }
+            if (!hasOutput) {
+                showStatus('Error: Pipeline must have an Output node', 'error');
+                return false;
+            }
+            return true;
+        }
+
+        function serializeBlueprint() {
+            return {
+                nodes: nodes.map(n => ({
+                    id: n.id,
+                    type: n.type,
+                    x: n.x,
+                    y: n.y,
+                    params: n.params
+                })),
+                connections: connections
+            };
+        }
+
+        function clearCanvas() {
+            if (confirm('Clear all nodes and connections?')) {
+                nodes = [];
+                connections = [];
+                document.getElementById('canvasContainer').querySelectorAll('.node').forEach(el => el.remove());
+                draw();
+            }
+        }
+
+        function saveBlueprint() {
+            const blueprint = serializeBlueprint();
+            const blob = new Blob([JSON.stringify(blueprint, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'blueprint.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function loadBlueprint() {
+            document.getElementById('loadFile').click();
+        }
+
+        function handleFileLoad(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const blueprint = JSON.parse(e.target.result);
+                    loadBlueprintData(blueprint);
+                } catch (error) {
+                    showStatus('Error loading blueprint: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function loadBlueprintData(blueprint) {
+            clearCanvas();
+            nodeIdCounter = 0;
+            
+            blueprint.nodes.forEach(nodeData => {
+                const node = addNode(nodeData.type, nodeData.x, nodeData.y);
+                Object.assign(node.params, nodeData.params);
+                createNodeElement(node);
+            });
+
+            connections = blueprint.connections || [];
+            draw();
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusBar = document.getElementById('statusBar');
+            statusBar.textContent = message;
+            statusBar.className = `status-bar show ${type}`;
+            setTimeout(() => {
+                statusBar.classList.remove('show');
+            }, 3000);
+        }
+
+        function deleteSelected() {
+            if (selectedNode) {
+                // Remove node
+                const nodeIndex = nodes.findIndex(n => n.id === selectedNode.id);
+                if (nodeIndex !== -1) {
+                    nodes.splice(nodeIndex, 1);
+                }
+                
+                // Remove connections
+                connections = connections.filter(conn => 
+                    conn.from.nodeId !== selectedNode.id && conn.to.nodeId !== selectedNode.id
+                );
+                
+                // Remove DOM element
+                const nodeEl = document.getElementById(`node-${selectedNode.id}`);
+                if (nodeEl) {
+                    nodeEl.remove();
+                }
+                
+                selectedNode = null;
+                draw();
+            }
+        }
+
+        function onKeyDown(e) {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNode) {
+                e.preventDefault();
+                deleteSelected();
+            }
+        }
+
+        // Initialize
+        initCanvas();
+        draw();
+    </script>
+</body>
+</html>
+
