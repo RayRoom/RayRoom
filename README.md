@@ -4,7 +4,8 @@
 
 A Python-based ray tracing acoustics simulator supporting complex room geometries, materials, and furniture.
 
-[![PyPI version](https://badge.fury.io/py/rayroom.svg)](https://badge.fury.io/py/rayroom)
+![PyPI](https://img.shields.io/pypi/v/rayroom?label=pypi%20package)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/rayroom)
 [![Documentation Status](https://readthedocs.org/projects/rayroom/badge/?version=latest)](https://rayroom.readthedocs.io/en/latest/?badge=latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
