@@ -259,6 +259,32 @@ plot_reverberation_time(rir, fs, filename="rt60.png", show=False)
 plot_decay_curve(rir, fs, band=1000, filename="decay_1000hz.png", show=False)
 ```
 
+## Web Tools
+
+RayRoom includes two visual web-based tools for designing rooms and creating simulation pipelines without writing code.
+
+### 🏗️ Room Creator
+
+Design acoustic rooms visually with a 2D/3D interface. Create custom geometries, place furniture, sources, and receivers, then export configurations for use in simulations.
+
+![Room Creator](./web/room_creator/Screenshot.png)
+
+```bash
+python web/room_creator/launch_room_creator.py
+```
+
+### 🗺️ Blueprint Editor
+
+Create complete audio simulation pipelines using a visual node-based editor. Connect nodes for rooms, renderers, effects, and metrics to build complex workflows.
+
+![Blueprint Editor](./web/blueprint_pipeline/Screenshot.png)
+
+```bash
+python web/blueprint_pipeline/launch_blueprint_editor.py
+```
+
+For detailed documentation, see the [Web Tools README](web/README.md).
+
 ## Structure
 
 - `rayroom/room/base.py`: Room and wall definitions.

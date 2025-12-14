@@ -47,7 +47,7 @@ For detailed documentation, see [Room Creator README](./room_creator/README.md).
 
 ---
 
-## 🔷 Blueprint Editor
+## 🗺️ Blueprint Editor
 
 A visual node-based editor for creating RayRoom audio simulation pipelines, inspired by Unreal Engine's Blueprint system. Design complete audio processing workflows by connecting nodes visually.
 
