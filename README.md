@@ -267,7 +267,7 @@ RayRoom includes two visual web-based tools for designing rooms and creating sim
 
 Design acoustic rooms visually with a 2D/3D interface. Create custom geometries, place furniture, sources, and receivers, then export configurations for use in simulations.
 
-![Room Creator](./web/room_creator/Screenshot.png)
+![Room Creator](https://raw.githubusercontent.com/RayRoom/RayRoom/main/web/room_creator/Screenshot.png)
 
 ```bash
 python web/room_creator/launch_room_creator.py
@@ -277,7 +277,7 @@ python web/room_creator/launch_room_creator.py
 
 Create complete audio simulation pipelines using a visual node-based editor. Connect nodes for rooms, renderers, effects, and metrics to build complex workflows.
 
-![Blueprint Editor](./web/blueprint_pipeline/Screenshot.png)
+![Blueprint Editor](https://raw.githubusercontent.com/RayRoom/RayRoom/main/web/blueprint_pipeline/Screenshot.png)
 
 ```bash
 python web/blueprint_pipeline/launch_blueprint_editor.py
