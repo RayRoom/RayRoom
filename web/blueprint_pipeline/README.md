@@ -2,6 +2,8 @@
 
 A visual node-based editor for creating RayRoom audio simulation pipelines, inspired by Unreal Engine's Blueprint system.
 
+![Blueprint Editor Screenshot](./Screenshot.png)
+
 ## Features
 
 - **Visual Node Editor**: Drag-and-drop interface with nodes for Room, Sources, Receivers, Renderers, Audio Inputs, Metrics, Effects, and Output

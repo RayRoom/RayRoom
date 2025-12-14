@@ -11,6 +11,9 @@ venv/
 .DS_Store
 docs/_build/
 
+!web/blueprint_pipeline/Screenshot.png
+!web/room_creator/Screenshot.png
+
 
 # Allow wav files from docs/_static
 !docs/_static/*.wav
