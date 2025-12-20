@@ -1,11 +1,14 @@
 import os
 import sys
 import argparse
+import numpy as np
 
-from rayroom import RadiosityRenderer
+from rayroom import (
+    SpectralRenderer,
+)
 from rayroom.analytics.performance import PerformanceMonitor
 from rayroom.effects import presets
-from rayroom.room.database import DemoRoom, TestBenchRoom, MedicalRoom8M
+from rayroom.room.database import DemoRoom
 from demo_utils import (
     generate_layouts,
     save_room_mesh,
@@ -17,63 +20,77 @@ from rayroom.core.constants import DEFAULT_SAMPLING_RATE
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 
-def main(mic_type='mono', output_dir='outputs', effects=None,
+def main(mic_type='mono', output_dir='outputs/spectral', effects=None,
          save_rir_flag=False, save_audio_flag=True, save_acoustics_flag=True,
-         save_psychoacoustics_flag=False, save_mesh_flag=True):
-    # 1. Define Room
-    # room, sources, mic = TestBenchRoom(mic_type=mic_type).create_room()
+         save_psychoacoustics_flag=False, save_mesh_flag=False):
+    """
+    Main function to run the spectral simulation.
+    """
+    # 1. Define Small Room
     room, sources, mic = DemoRoom(mic_type=mic_type).create_room()
-    # room, sources, mic = MedicalRoom8M(mic_type=mic_type).create_room()
     src1 = sources["src1"]
     src2 = sources["src2"]
     src_bg = sources["src_bg"]
 
-    # 3. Create output directory
+    # 3. Create output directory if it doesn't exist
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
     # Save layout visualization
-    generate_layouts(room, output_dir, "radiosity")
+    generate_layouts(room, output_dir, "spectral")
 
     # Save mesh if requested
     if save_mesh_flag:
-        save_room_mesh(room, output_dir, "radiosity")
+        save_room_mesh(room, output_dir, "spectral")
 
-    # 6. Setup Radiosity Renderer
-    print("Initializing Radiosity Renderer...")
-    renderer = RadiosityRenderer(room, fs=DEFAULT_SAMPLING_RATE)
+    # 6. Setup Spectral Renderer
+    # Crossover at 500 Hz.
+    # FDTD will handle < 500Hz (Diffraction important here).
+    # Geometric will handle > 500Hz.
+    print("Initializing Spectral Renderer (Crossover: 500 Hz)...")
+    renderer = SpectralRenderer(room, fs=DEFAULT_SAMPLING_RATE, crossover_freq=500.0)
 
-    # 7. Assign Audio Files
-    print("Assigning audio files...")
-    base_path = "audios-trump-indextts15"
-    # base_path = "audios-indextts"
-    # base_path = "audios"
+    # 7. Assign Audio
+    print("Assigning audio...")
+    base_path = "audio_sources"
 
-    audio_path = os.path.join(os.path.dirname(__file__), base_path, "speaker_1.wav")
-    if not os.path.exists(audio_path):
-        print(f"Warning: Example audio file not found at {audio_path}")
-        return
-    renderer.set_source_audio(src1, audio_path, gain=1.0)
-    audio_path_2 = os.path.join(os.path.dirname(__file__), base_path, "speaker_2.wav")
-    if not os.path.exists(audio_path_2):
-        print(f"Warning: Example audio file not found at {audio_path_2}")
-        return
-    renderer.set_source_audio(src2, audio_path_2, gain=1.0)
+    audio_file_1 = os.path.join(base_path, "speaker_1.wav")
+    audio_file_2 = os.path.join(base_path, "speaker_2.wav")
 
-    audio_path_bg = os.path.join(os.path.dirname(__file__), base_path, "foreground.wav")
-    if not os.path.exists(audio_path_bg):
-        print(f"Warning: Example audio file not found at {audio_path_bg}")
+    if not os.path.exists(audio_file_1):
+        print("Warning: Audio file not found. Creating dummy sine sweep.")
+        # Create dummy audio
+        t = np.linspace(0, 1, DEFAULT_SAMPLING_RATE)
+        audio = np.sin(2 * np.pi * 200 * t * t)  # Sweep
+        renderer.set_source_audio(src1, audio, gain=1.0)
+        renderer.set_source_audio(src2, audio, gain=1.0)
     else:
-        renderer.set_source_audio(src_bg, audio_path_bg, gain=0.1)
+        renderer.set_source_audio(src1, audio_file_1, gain=1.0)
+        if os.path.exists(audio_file_2):
+            renderer.set_source_audio(src2, audio_file_2, gain=1.0)
+        else:
+            # Use same for src2 if src2 wav missing
+            renderer.set_source_audio(src2, audio_file_1, gain=1.0)
+
+    audio_file_bg = os.path.join(base_path, "foreground.wav")
+    if os.path.exists(audio_file_bg):
+        renderer.set_source_audio(src_bg, audio_file_bg, gain=0.1)
 
     # 8. Render
-    print("Starting Radiosity Rendering pipeline (ISM Order 2 + Radiosity)...")
+    print("Starting Spectral Rendering pipeline...")
+    print("Phase 1: HF (Geometric) + Phase 2: LF (FDTD)")
+    print("Note: FDTD step may take time...")
+
     with PerformanceMonitor() as monitor:
         outputs, rirs = renderer.render(
+            n_rays=20000,
+            max_hops=50,
+            rir_duration=1.5,
+            record_paths=False,
             ism_order=2,
-            rir_duration=1.5
+            show_path_plot=False
         )
-    save_performance_metrics(monitor, output_dir, "radiosity")
+    save_performance_metrics(monitor, output_dir, "spectral")
 
     # 9. Save Result
     mixed_audio = outputs[mic.name]
@@ -82,7 +99,7 @@ def main(mic_type='mono', output_dir='outputs', effects=None,
     if mixed_audio is not None:
         process_effects_and_save(
             mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE,
-            output_dir, "radiosity", effects, save_rir_flag=save_rir_flag,
+            output_dir, "spectral", effects, save_rir_flag=save_rir_flag,
             save_audio_flag=save_audio_flag, save_acoustics_flag=save_acoustics_flag,
             save_psychoacoustics_flag=save_psychoacoustics_flag
         )
@@ -91,14 +108,16 @@ def main(mic_type='mono', output_dir='outputs', effects=None,
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Render a radiosity simulation.")
-    parser.add_argument(
-        '--mic', type=str, default='mono', choices=['mono', 'ambisonic'],
-        help="Microphone type."
+    parser = argparse.ArgumentParser(
+        description="Render a spectral simulation with different microphone types."
     )
     parser.add_argument(
-        '--output_dir', type=str, default='outputs/radiosity',
-        help="Output directory."
+        '--mic', type=str, default='mono', choices=['mono', 'ambisonic'],
+        help="Type of microphone to use ('mono' or 'ambisonic')."
+    )
+    parser.add_argument(
+        '--output_dir', type=str, default='outputs',
+        help="Output directory for saving files."
     )
     parser.add_argument(
         '--save_rir',
@@ -123,10 +142,9 @@ if __name__ == "__main__":
         help="Compute and save psychoacoustic metrics."
     )
     parser.add_argument(
-        '--no-save-mesh',
-        action='store_false',
-        dest='save_mesh',
-        help="Do not save the room geometry as an OBJ mesh file."
+        '--save-mesh',
+        action='store_true',
+        help="Save the room geometry as an OBJ mesh file."
     )
     parser.add_argument(
         '--effects',

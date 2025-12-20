@@ -11,9 +11,12 @@ venv/
 .DS_Store
 docs/_build/
 
+.paper/
+
 !web/blueprint_pipeline/Screenshot.png
 !web/room_creator/Screenshot.png
 
+!examples/engines/audio_sources/
 
 # Allow wav files from docs/_static
 !docs/_static/*.wav
@@ -27,7 +30,6 @@ rayroom/__pycache__/room.cpython-314.pyc
 rayroom/__pycache__/visualize.cpython-314.pyc
 .DS_Store
 docs/_build/.DS_Store
-examples/audios-trump-indextts15/audio_dialog.json
 examples/outputs/medical_room_meshes/MedicalRoom4_5M.json
 examples/outputs/medical_room_meshes/MedicalRoom6M.json
 examples/outputs/medical_room_meshes/MedicalRoom8M.json
@@ -40,3 +42,7 @@ examples/outputs/medical_room_meshes/MedicalRoom18M.json
 examples/outputs/medical_room_meshes/MedicalRoom20M.json
 examples/outputs/medical_room_meshes/MedicalRoom24M.json
 examples/outputs/medical_room_meshes/MedicalRoom32M.json
+examples/engines/run_all_demos.sh
+
+examples/engines/outputs_audios/*
+web/blueprint_pipeline/outputs/*

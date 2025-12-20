@@ -309,7 +309,7 @@ class BlueprintExecutor:
                     examples_dir = project_root / 'examples'
                     
                     if not os.path.isabs(audio_file):
-                        # If the path already includes a directory (e.g., "audios-trump-indextts15/speaker_1.wav")
+                        # If the path already includes a directory (e.g., "audio_sources/speaker_1.wav")
                         # use it as-is, otherwise try to find it
                         if '/' in audio_file or '\\' in audio_file:
                             audio_file = str(examples_dir / audio_file)
@@ -327,7 +327,7 @@ class BlueprintExecutor:
                             # Try alternative paths - check common audio directories
                             filename = os.path.basename(audio_file)
                             alt_paths = [
-                                str(examples_dir / 'audios-trump-indextts15' / filename),
+                                str(examples_dir / 'audio_sources' / filename),
                                 str(examples_dir / 'audios-indextts' / filename),
                                 str(examples_dir / 'audios' / filename),
                                 # Also try the original path structure

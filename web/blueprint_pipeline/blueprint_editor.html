@@ -988,19 +988,19 @@
 
             // 2. Three audio input nodes
             const audio1Node = addNode('audio', startX + nodeSpacing, startY);
-            audio1Node.params.file = 'audios-trump-indextts15/speaker_1.wav';
+            audio1Node.params.file = 'audio_sources/speaker_1.wav';
             audio1Node.params.sourceName = 'src1';
             audio1Node.params.gain = 1.0;
             createNodeElement(audio1Node);
 
             const audio2Node = addNode('audio', startX + nodeSpacing, startY + nodeSpacing);
-            audio2Node.params.file = 'audios-trump-indextts15/speaker_2.wav';
+            audio2Node.params.file = 'audio_sources/speaker_2.wav';
             audio2Node.params.sourceName = 'src2';
             audio2Node.params.gain = 1.0;
             createNodeElement(audio2Node);
 
             const audioBgNode = addNode('audio', startX + nodeSpacing, startY + nodeSpacing * 2);
-            audioBgNode.params.file = 'audios-trump-indextts15/foreground.wav';
+            audioBgNode.params.file = 'audio_sources/foreground.wav';
             audioBgNode.params.sourceName = 'src_bg';
             audioBgNode.params.gain = 0.1;
             createNodeElement(audioBgNode);

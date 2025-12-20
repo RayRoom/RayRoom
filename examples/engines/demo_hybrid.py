@@ -3,17 +3,17 @@ import sys
 import argparse
 
 from rayroom import (
-    RaytracingRenderer,
+    HybridRenderer,
 )
 from rayroom.analytics.performance import PerformanceMonitor
 from rayroom.effects import presets
-from rayroom.room.database import DemoRoom
 from demo_utils import (
     generate_layouts,
     save_room_mesh,
     process_effects_and_save,
     save_performance_metrics,
 )
+from rayroom.room.database import DemoRoom
 from rayroom.core.constants import DEFAULT_SAMPLING_RATE
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -22,8 +22,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 def main(mic_type='mono', output_dir='outputs', effects=None,
          save_rir_flag=False, save_audio_flag=True, save_acoustics_flag=True,
          save_psychoacoustics_flag=False, save_mesh_flag=False):
-    # 1. Define Room for Raytracing (8 square meters -> e.g., 4m x 2m or 2.83m x 2.83m)
-    # Using 4m x 2m x 2.5m height
+    """
+    Main function to run the hybrid simulation.
+    """
+    # 1. Define Small Room (Same as small room example)
     room, sources, mic = DemoRoom(mic_type=mic_type).create_room()
     src1 = sources["src1"]
     src2 = sources["src2"]
@@ -33,65 +35,64 @@ def main(mic_type='mono', output_dir='outputs', effects=None,
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
-    # 5. Save layout visualization
-    generate_layouts(room, output_dir, "raytracing")
+    # 4. Save layout visualization
+    generate_layouts(room, output_dir, "hybrid")
 
     # Save mesh if requested
     if save_mesh_flag:
-        save_room_mesh(room, output_dir, "raytracing")
+        save_room_mesh(room, output_dir, "hybrid")
 
-    # 6. Setup Ray-tracing Renderer
-    print("Initializing Ray-tracing Renderer...")
-    renderer = RaytracingRenderer(room, fs=DEFAULT_SAMPLING_RATE, temperature=20.0, humidity=50.0)
+    # 5. Setup Hybrid Renderer
+    print("Initializing Hybrid Renderer...")
+    renderer = HybridRenderer(room, fs=DEFAULT_SAMPLING_RATE, temperature=20.0, humidity=50.0)
 
-    # 7. Assign Audio Files
+    # Assign Audio Files
     print("Assigning audio files...")
-    # build the path to the audio files folder relative to this script file
-    base_path = os.path.join(os.path.dirname(__file__), "audios-trump-indextts15")
-    # base_path = "audios-indextts"
-    # base_path = "audios"
+    base_path = "audio_sources"
 
-    # Check if audio files exist, otherwise use placeholders or warnings
     if not os.path.exists(os.path.join(base_path, "speaker_1.wav")):
-        print(
-            "Warning: Example audio files not found. "
-            "Please ensure 'examples/audios/' has speaker_1.wav, speaker_2.wav, foreground.wav"
-        )
-        return
+        print("Error: Example audio files not found.")
+        exit(1)
 
     renderer.set_source_audio(src1, os.path.join(base_path, "speaker_1.wav"), gain=1.0)
     renderer.set_source_audio(src2, os.path.join(base_path, "speaker_2.wav"), gain=1.0)
     renderer.set_source_audio(src_bg, os.path.join(base_path, "foreground.wav"), gain=0.1)
 
-    # 8. Render
-    print("Starting Ray-tracing Rendering pipeline...")
+    # 7. Render using Hybrid Method
+    # ism_order=2 means reflections of order 0, 1, 2 are handled by ISM.
+    # RayTracer will skip specular reflections <= 2.
+    print("Starting Hybrid Rendering pipeline (ISM Order 2 + Ray Tracing)...")
+
     with PerformanceMonitor() as monitor:
-        outputs, rirs = renderer.render(
+        outputs, _, rirs = renderer.render(
             n_rays=20000,
             max_hops=50,
-            rir_duration=1.5
+            rir_duration=1.5,
+            record_paths=True,
+            interference=False,
+            ism_order=2,         # Enable Hybrid Mode
+            show_path_plot=False
         )
-    save_performance_metrics(monitor, output_dir, "raytracing")
+    save_performance_metrics(monitor, output_dir, "hybrid")
 
-    # 9. Save Result
+    # 8. Save Result
     mixed_audio = outputs[mic.name]
     rir = rirs[mic.name]
 
-    if mixed_audio is None:
+    if mixed_audio is not None:
+        process_effects_and_save(
+            mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE,
+            output_dir, "hybrid", effects, save_rir_flag=save_rir_flag,
+            save_audio_flag=save_audio_flag, save_acoustics_flag=save_acoustics_flag,
+            save_psychoacoustics_flag=save_psychoacoustics_flag
+        )
+    else:
         print("Error: No audio output generated.")
-        return
-
-    process_effects_and_save(
-        mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE,
-        output_dir, "raytracing", effects, save_rir_flag=save_rir_flag,
-        save_audio_flag=save_audio_flag, save_acoustics_flag=save_acoustics_flag,
-        save_psychoacoustics_flag=save_psychoacoustics_flag
-    )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Render a raytracing room simulation with different microphone types."
+        description="Render a hybrid simulation with different microphone types."
     )
     parser.add_argument(
         '--mic', type=str, default='mono', choices=['mono', 'ambisonic'],
@@ -136,9 +137,10 @@ if __name__ == "__main__":
         choices=list(presets.EFFECTS.keys()) + ["original"],
         help="Apply a post-processing effect to the output audio."
     )
-    parser.set_defaults(save_audio=True, save_acoustics=True, save_psychoacoustics=False, save_mesh=True)
+    parser.set_defaults(save_audio=True, save_acoustics=True, save_psychoacoustics=False, save_mesh=False)
     args = parser.parse_args()
-    main(mic_type=args.mic, output_dir=args.output_dir, effects=args.effects, save_rir_flag=args.save_rir,
-         save_audio_flag=args.save_audio, save_acoustics_flag=args.save_acoustics,
+    main(mic_type=args.mic, output_dir=args.output_dir, effects=args.effects,
+         save_rir_flag=args.save_rir, save_audio_flag=args.save_audio,
+         save_acoustics_flag=args.save_acoustics,
          save_psychoacoustics_flag=args.save_psychoacoustics,
          save_mesh_flag=args.save_mesh)
