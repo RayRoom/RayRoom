@@ -6,7 +6,7 @@ The audio samples illustrate how RayRoom captures richer late reverberation, dif
 
 ### PyRoomAcoustics (Baseline)
 
-Uses standard Ray Tracing. This serves as a baseline for comparison.
+Uses standard hybrid simulator based on image source method (ISM) and ray tracing (RT). This serves as a baseline for comparison.
 
 
 

@@ -18,6 +18,12 @@ Hybrid Demo
 - **File**: `demo_hybrid.py`
 - **Description**: Shows how to use the hybrid engine, combining ISM for early reflections and ray tracing for late reverberation.
 
+ISM Demo
+--------
+
+- **File**: `demo_ism.py`
+- **Description**: Demonstrates a pure Image Source Method (ISM) simulation for calculating early reflections.
+
 Radiosity Demo
 --------------
 

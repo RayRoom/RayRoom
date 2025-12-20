@@ -63,6 +63,9 @@ class RayTracer:
         :return: Dictionary mapping source names to lists of ray paths if record_paths is True, else None.
         :rtype: dict or None
         """
+        if n_rays <= 0:
+            return {} if record_paths else None
+
         print(f"RayTracer starting for source: {source.name}")
         paths = self._trace_source(source, n_rays, max_hops, energy_threshold, record_paths, min_ism_order)
 
