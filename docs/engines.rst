@@ -13,17 +13,7 @@ The `engines` module contains the various simulation backends available in RayRo
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: rayroom.engines.dgfem.dgfem
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 .. automodule:: rayroom.engines.hybrid.hybrid
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: rayroom.engines.hybrid.hybrid_dgfem
    :members:
    :undoc-members:
    :show-inheritance:

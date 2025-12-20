@@ -30,12 +30,6 @@ Spectral Demo
 - **File**: `demo_spectral.py`
 - **Description**: Demonstrates the spectral engine, which uses FDTD for low frequencies and a geometric approach for high frequencies.
 
-DGFEM Demo
-----------
-
-- **File**: `demo_dgfem.py`
-- **Description**: An example of using the Discontinuous Galerkin Finite Element Method (DGFEM) engine.
-
 Polygon Room Demo
 -----------------
 

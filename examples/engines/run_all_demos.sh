@@ -1,21 +1,5 @@
 #!/bin/bash
 
-# echo "================================================"
-# echo "Running Hybrid DG-FEM simulations..."
-# echo "================================================"
-# echo "> mono"
-# ../../venv/bin/python3 demo_hybrid_dgfem.py --mic mono --output_dir "outputs_audios/hybrid_dgfem/mono"
-# echo "> ambisonic"
-# ../../venv/bin/python3 demo_hybrid_dgfem.py --mic ambisonic --output_dir "outputs_audios/hybrid_dgfem/ambisonic"
-
-# echo "================================================"
-# echo "Running DG-FEM simulations..."
-# echo "================================================"
-# echo "> mono"
-# ../../venv/bin/python3 demo_dgfem.py --mic mono --output_dir "outputs_audios/dgfem/mono"
-# echo "> ambisonic"
-# ../../venv/bin/python3 demo_dgfem.py --mic ambisonic --output_dir "outputs_audios/dgfem/ambisonic"
-
 echo "================================================"
 echo "Running Radiosity simulations..."
 echo "================================================"
