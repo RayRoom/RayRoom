@@ -197,7 +197,8 @@ class RaytracingRenderer:
             # Clear receiver histograms for this source
             for rx in self.room.receivers:
                 if isinstance(rx, AmbisonicReceiver):
-                    rx.w_histogram, rx.x_histogram, rx.y_histogram, rx.z_histogram = [], [], [], []
+                    for ch in rx.histograms:
+                        rx.histograms[ch] = []
                 else:
                     rx.amplitude_histogram = []
 
@@ -213,61 +214,37 @@ class RaytracingRenderer:
 
             for rx in self.room.receivers:
                 if isinstance(rx, AmbisonicReceiver):
-                    # Generate 4 RIRs for W, X, Y, Z
-                    rir_w = generate_rir(
-                        rx.w_histogram, fs=self.fs, duration=rir_duration,
-                        random_phase=not interference
-                    )
-                    rir_x = generate_rir(
-                        rx.x_histogram, fs=self.fs, duration=rir_duration,
-                        random_phase=not interference
-                    )
-                    rir_y = generate_rir(
-                        rx.y_histogram, fs=self.fs, duration=rir_duration,
-                        random_phase=not interference
-                    )
-                    rir_z = generate_rir(
-                        rx.z_histogram, fs=self.fs, duration=rir_duration,
-                        random_phase=not interference
-                    )
+                    channel_rirs = []
+                    processed_channels = []
+
+                    # Iterate over channels in defined order
+                    for ch_name in rx.channel_names:
+                        hist = rx.histograms[ch_name]
+                        rir_ch = generate_rir(
+                            hist, fs=self.fs, duration=rir_duration,
+                            random_phase=not interference
+                        )
+                        channel_rirs.append(rir_ch)
+
+                        processed_ch = fftconvolve(
+                            source_audio * gain, rir_ch, mode='full'
+                        )
+                        processed_channels.append(processed_ch)
 
                     # Store multi-channel RIR
-                    rir = np.stack([rir_w, rir_x, rir_y, rir_z], axis=1)
+                    rir = np.stack(channel_rirs, axis=1)
 
-                    # Convolve each channel
-                    processed_w = fftconvolve(
-                        source_audio * gain, rir_w, mode='full'
-                    )
-                    processed_x = fftconvolve(
-                        source_audio * gain, rir_x, mode='full'
-                    )
-                    processed_y = fftconvolve(
-                        source_audio * gain, rir_y, mode='full'
-                    )
-                    processed_z = fftconvolve(
-                        source_audio * gain, rir_z, mode='full'
-                    )
-
-                    # Stack into a 4-channel array
-                    max_len = max(
-                        len(processed_w), len(processed_x),
-                        len(processed_y), len(processed_z)
-                    )
+                    # Stack into a multi-channel array
+                    max_len = max(len(p) for p in processed_channels)
 
                     def pad(arr, length):
                         if len(arr) < length:
                             return np.pad(arr, (0, length - len(arr)))
                         return arr
 
-                    processed_w = pad(processed_w, max_len)
-                    processed_x = pad(processed_x, max_len)
-                    processed_y = pad(processed_y, max_len)
-                    processed_z = pad(processed_z, max_len)
+                    padded_channels = [pad(p, max_len) for p in processed_channels]
+                    processed = np.stack(padded_channels, axis=1)
 
-                    processed = np.stack(
-                        [processed_w, processed_x, processed_y, processed_z],
-                        axis=1
-                    )
                 else:  # Standard Receiver
                     rir = generate_rir(
                         rx.amplitude_histogram, fs=self.fs,
@@ -285,21 +262,22 @@ class RaytracingRenderer:
                 else:
                     # Correctly pad and add signals
                     current = receiver_outputs[rx.name]
-                    is_ambisonic = len(processed.shape) > 1
+                    is_multichannel = processed.ndim > 1
+                    num_channels = processed.shape[1] if is_multichannel else 1
 
                     if len(processed) > len(current):
-                        if is_ambisonic:
+                        if is_multichannel:
                             padding = np.zeros(
-                                (len(processed) - len(current), 4)
+                                (len(processed) - len(current), num_channels)
                             )
                         else:
                             padding = np.zeros(len(processed) - len(current))
                         current = np.concatenate((current, padding))
                         receiver_outputs[rx.name] = current
                     elif len(current) > len(processed):
-                        if is_ambisonic:
+                        if is_multichannel:
                             padding = np.zeros(
-                                (len(current) - len(processed), 4)
+                                (len(current) - len(processed), num_channels)
                             )
                         else:
                             padding = np.zeros(len(current) - len(processed))

@@ -20,12 +20,12 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 def main(mic_type='mono', output_dir='outputs',
          save_rir_flag=False, save_audio_flag=True, save_acoustics_flag=True,
-         save_psychoacoustics_flag=False, save_mesh_flag=False):
+         save_psychoacoustics_flag=False, save_mesh_flag=False, ambisonic_order="1st_order"):
     """
     Main function to run the hybrid simulation.
     """
     # 1. Define Small Room (Same as small room example)
-    room, sources, mic = DemoRoom(mic_type=mic_type).create_room()
+    room, sources, mic = DemoRoom(mic_type=mic_type, ambisonic_order=ambisonic_order).create_room()
     src1 = sources["src1"]
     src2 = sources["src2"]
     src_bg = sources["src_bg"]
@@ -98,6 +98,10 @@ if __name__ == "__main__":
         help="Type of microphone to use ('mono' or 'ambisonic')."
     )
     parser.add_argument(
+        '--ambisonic_order', type=str, default='1st_order', choices=['1st_order', '2nd_order', 'binaural'],
+        help="Type of ambisonic order to use ('1st_order', '2nd_order', 'binaural')."
+    )
+    parser.add_argument(
         '--output_dir', type=str, default='outputs',
         help="Output directory for saving files."
     )
@@ -134,4 +138,4 @@ if __name__ == "__main__":
          save_rir_flag=args.save_rir, save_audio_flag=args.save_audio,
          save_acoustics_flag=args.save_acoustics,
          save_psychoacoustics_flag=args.save_psychoacoustics,
-         save_mesh_flag=args.save_mesh)
+         save_mesh_flag=args.save_mesh, ambisonic_order=args.ambisonic_order)

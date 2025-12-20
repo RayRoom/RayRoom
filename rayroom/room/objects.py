@@ -89,10 +89,14 @@ class Receiver(Object3D):
 
 class AmbisonicReceiver(Object3D):
     """
-    Represents a first-order Ambisonic microphone.
+    Represents an Ambisonic microphone with configurable order/pattern.
+    Supported configurations:
+    - "binaural": 2 channels (Left, Right) - Approximation using cardioids
+    - "1st_order": 4 channels (W, X, Y, Z)
+    - "2nd_order": 9 channels (W, X, Y, Z, R, S, T, U, V)
     """
 
-    def __init__(self, name, position, orientation=None, radius=0.01):
+    def __init__(self, name, position, orientation=None, radius=0.01, config="1st_order"):
         """
         Initialize an AmbisonicReceiver.
 
@@ -104,15 +108,32 @@ class AmbisonicReceiver(Object3D):
         :type orientation: list or np.ndarray, optional
         :param radius: Radius for ray intersection tests.
         :type radius: float
+        :param config: Configuration ("binaural", "1st_order", "2nd_order").
+        :type config: str
         """
         super().__init__(name, position)
         self.radius = radius
+        self.config = config
 
-        # Histograms for W, X, Y, Z channels
-        self.w_histogram = []
-        self.x_histogram = []
-        self.y_histogram = []
-        self.z_histogram = []
+        # Define channels based on configuration
+        if config == "binaural":
+            self.channel_names = ["L", "R"]
+        elif config == "1st_order":
+            self.channel_names = ["W", "X", "Y", "Z"]
+        elif config == "2nd_order":
+            # Furse-Malham or ACN/SN3D ordering. We'll use standard letters for clarity in dict.
+            # W, X, Y, Z (1st)
+            # R, S, T, U, V (2nd) -> R=V_2,0, S=V_2,1, T=V_2,-1, U=V_2,2, V=V_2,-2 approx mappings varies.
+            # We will use simple letter keys for histograms.
+            self.channel_names = ["W", "X", "Y", "Z", "R", "S", "T", "U", "V"]
+        else:
+            raise ValueError(f"Unknown configuration: {config}")
+
+        # Histograms for channels
+        self.histograms = {ch: [] for ch in self.channel_names}
+
+        # Backwards compatibility properties (optional, but good for safety if I miss a usage)
+        # self.w_histogram = self.histograms.get('W') # properties might be better
 
         # Define the orientation of the microphone capsules
         self.orientation = np.array(orientation if orientation is not None else [1, 0, 0], dtype=float)
@@ -122,18 +143,27 @@ class AmbisonicReceiver(Object3D):
 
         # Create an orthonormal basis for the microphone's local coordinate system
         self.x_axis = self.orientation  # Forward
-
+        
         # Ensure the up vector is not parallel to the forward vector
         up_global = np.array([0., 0., 1.])
         if np.allclose(np.abs(np.dot(self.x_axis, up_global)), 1.0):
             # If forward is aligned with global Z, use global Y as up
             up_global = np.array([0., 1., 0.])
-
+            
         self.y_axis = np.cross(up_global, self.x_axis)  # Left
         self.y_axis /= np.linalg.norm(self.y_axis)
-
+        
         self.z_axis = np.cross(self.x_axis, self.y_axis)  # Up
         self.z_axis /= np.linalg.norm(self.z_axis)
+
+    @property
+    def w_histogram(self): return self.histograms.get('W', [])
+    @property
+    def x_histogram(self): return self.histograms.get('X', [])
+    @property
+    def y_histogram(self): return self.histograms.get('Y', [])
+    @property
+    def z_histogram(self): return self.histograms.get('Z', [])
 
     def record(self, time, energy, direction):
         """
@@ -151,19 +181,43 @@ class AmbisonicReceiver(Object3D):
 
         amplitude = np.sqrt(energy)
 
-        # W channel (omnidirectional)
-        gain_w = 1.0
-        self.w_histogram.append((time, amplitude * gain_w))
+        # Project direction onto local axes
+        x = np.dot(direction, self.x_axis)
+        y = np.dot(direction, self.y_axis)
+        z = np.dot(direction, self.z_axis)
 
-        # X, Y, Z channels (figure-of-eight / bidirectional)
-        # Gain is the projection of the arrival direction onto the capsule's axis
-        gain_x = np.dot(direction, self.x_axis)
-        gain_y = np.dot(direction, self.y_axis)
-        gain_z = np.dot(direction, self.z_axis)
+        # Calculate gains for each channel
+        gains = {}
 
-        self.x_histogram.append((time, amplitude * gain_x))
-        self.y_histogram.append((time, amplitude * gain_y))
-        self.z_histogram.append((time, amplitude * gain_z))
+        if self.config == "binaural":
+            # Simple approximation: Cardioid patterns facing +/- 90 degrees (Left/Right)
+            # Left is +Y, Right is -Y in our local system (if Y is Left).
+            # Wait, self.y_axis is defined as Left.
+            # Cardioid: 0.5 * (1 + cos(theta))
+            # Left (+Y): cos(theta_L) = y
+            gains["L"] = 0.5 * (1.0 + y)
+            # Right (-Y): cos(theta_R) = -y
+            gains["R"] = 0.5 * (1.0 - y)
+
+        elif self.config in ["1st_order", "2nd_order"]:
+            # 1st Order
+            gains["W"] = 1.0  # Omnidirectional (usually 1/sqrt(2) in some conventions, using 1.0 per existing code)
+            gains["X"] = x
+            gains["Y"] = y
+            gains["Z"] = z
+
+            if self.config == "2nd_order":
+                # 2nd Order Spherical Harmonics (Unnormalized or N3D-ish approximations)
+                # Using standard Cartesian definitions
+                gains["R"] = 1.5 * z**2 - 0.5  # 3z^2 - 1 roughly (z^2 component)
+                gains["S"] = x * z
+                gains["T"] = y * z
+                gains["U"] = x**2 - y**2
+                gains["V"] = x * y
+
+        # Append to histograms
+        for ch, gain in gains.items():
+            self.histograms[ch].append((time, amplitude * gain))
 
 
 class Furniture(Object3D):

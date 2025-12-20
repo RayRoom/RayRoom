@@ -5,7 +5,7 @@ from rayroom.core.constants import DEFAULT_SAMPLING_RATE
 
 class DemoRoom(Entry):
 
-    def __init__(self, mic_type='mono'):
+    def __init__(self, mic_type='mono', ambisonic_order="1st_order"):
         """
         Parameters
         ----------
@@ -14,6 +14,7 @@ class DemoRoom(Entry):
             Can be 'mono' or 'ambisonic'.
         """
         self.mic_type = mic_type
+        self.ambisonic_order = ambisonic_order
 
     def create_room(self) -> tuple:
         """
@@ -40,7 +41,12 @@ class DemoRoom(Entry):
         mic_pos = [1.2, 0.25, 1.7]
         if self.mic_type == 'ambisonic':
             print("Using Ambisonic Receiver.")
-            mic = objects.AmbisonicReceiver("AmbiMic", mic_pos, radius=0.02)
+            mic = objects.AmbisonicReceiver(
+                name="AmbiMic",
+                position=mic_pos,
+                radius=0.02,
+                config=self.ambisonic_order
+            )
         else:
             print("Using Mono Receiver.")
             mic = objects.Receiver("MonoMic", mic_pos, radius=0.15)

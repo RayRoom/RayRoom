@@ -114,9 +114,18 @@ class RadiosityRenderer(HybridRenderer):
             # Clear histograms
             for rx in self.room.receivers:
                 if isinstance(rx, AmbisonicReceiver):
-                    rx.w_histogram, rx.x_histogram, rx.y_histogram, rx.z_histogram = [], [], [], []
+                    for ch in rx.histograms:
+                        rx.histograms[ch] = []
                 elif isinstance(rx, Receiver):
-                    rx.energy_histogram = []
+                    rx.amplitude_histogram = [] # Note: corrected from energy_histogram to amplitude_histogram to match other engines if needed, but keeping original variable name if it was correct in this context. 
+                    # Checking original code: used rx.energy_histogram but ISM/Raytracer use amplitude_histogram? 
+                    # Wait, ism.py records to amplitude_histogram. Radiosity might be using a different one or it's a bug in previous code?
+                    # Let's check objects.py again. Receiver has amplitude_histogram.
+                    # Original code had: rx.energy_histogram = [] at line 119, but later at 151: rx.amplitude_histogram.extend(diffuse_amps). 
+                    # So line 119 was likely creating a new attribute that wasn't used later or was a mistake. 
+                    # However, ISM records to amplitude_histogram. So we should clear amplitude_histogram.
+                    rx.amplitude_histogram = []
+            
             if verbose:
                 print("  Phase 1: ISM (Early Specular)...")
             self.ism_engine.run(source, max_order=ism_order, verbose=False)
@@ -126,10 +135,6 @@ class RadiosityRenderer(HybridRenderer):
                 print("  Phase 2: Radiosity (Late Diffuse)...")
             # Solve energy flow
             # Time step for radiosity needs to be fine enough for RIR but coarse enough for speed.
-            # 10ms (0.01s) is common for energy envelopes.
-            # But for audio convolution, we need finer structure?
-            # No, we reconstruct noise with this envelope.
-            # Let's use 5ms.
             dt_rad = 0.005
             energy_history = self.radiosity_solver.solve(source, duration=rir_duration, time_step=dt_rad)
             # Collect at receivers
@@ -138,51 +143,53 @@ class RadiosityRenderer(HybridRenderer):
                 diffuse_hist = self.radiosity_solver.collect_at_receiver(rx, energy_history, dt_rad)
                 # Merge histograms
                 # NOTE: For Ambisonic, the diffuse energy from Radiosity is omnidirectional.
-                # It will only be added to the W channel. This is a limitation of combining
-                # a non-directional method (Radiosity) with a directional one (Ambisonics).
-                # The specular reflections from ISM will still be directional.
-
+                
                 # Convert diffuse energy history to amplitude before adding to histograms
                 diffuse_amps = [(t, np.sqrt(e)) for t, e in diffuse_hist if e >= 0]
 
                 if isinstance(rx, AmbisonicReceiver):
-                    rx.w_histogram.extend(diffuse_amps)
+                    if rx.config in ["1st_order", "2nd_order"]:
+                        rx.histograms['W'].extend(diffuse_amps)
+                    elif rx.config == "binaural":
+                        rx.histograms['L'].extend(diffuse_amps)
+                        rx.histograms['R'].extend(diffuse_amps)
                 else:
                     rx.amplitude_histogram.extend(diffuse_amps)
+
             # 3. Generate RIR and Convolve
             source_audio = self.source_audios[source]
             gain = self.source_gains.get(source, 1.0)
 
             for rx in self.room.receivers:
                 if isinstance(rx, AmbisonicReceiver):
-                    # Generate 4 RIRs for W, X, Y, Z
-                    rir_w = generate_rir(rx.w_histogram, fs=self.fs, duration=rir_duration, random_phase=True)
-                    rir_x = generate_rir(rx.x_histogram, fs=self.fs, duration=rir_duration, random_phase=True)
-                    rir_y = generate_rir(rx.y_histogram, fs=self.fs, duration=rir_duration, random_phase=True)
-                    rir_z = generate_rir(rx.z_histogram, fs=self.fs, duration=rir_duration, random_phase=True)
+                    channel_rirs = []
+                    processed_channels = []
+
+                    for ch_name in rx.channel_names:
+                        hist = rx.histograms[ch_name]
+                        rir_ch = generate_rir(
+                            hist, fs=self.fs, duration=rir_duration,
+                            random_phase=True
+                        )
+                        channel_rirs.append(rir_ch)
+                        processed_ch = fftconvolve(
+                            source_audio * gain, rir_ch, mode='full'
+                        )
+                        processed_channels.append(processed_ch)
 
                     # Store multi-channel RIR
-                    rir = np.stack([rir_w, rir_x, rir_y, rir_z], axis=1)
+                    rir = np.stack(channel_rirs, axis=1)
 
-                    # Convolve each channel
-                    processed_w = fftconvolve(source_audio * gain, rir_w, mode='full')
-                    processed_x = fftconvolve(source_audio * gain, rir_x, mode='full')
-                    processed_y = fftconvolve(source_audio * gain, rir_y, mode='full')
-                    processed_z = fftconvolve(source_audio * gain, rir_z, mode='full')
-
-                    # Stack into a 4-channel array
-                    max_len = max(len(processed_w), len(processed_x), len(processed_y), len(processed_z))
+                    # Stack processed audio
+                    max_len = max(len(p) for p in processed_channels)
 
                     def pad(arr, length):
                         if len(arr) < length:
                             return np.pad(arr, (0, length - len(arr)))
                         return arr
-
-                    processed_w = pad(processed_w, max_len)
-                    processed_x = pad(processed_x, max_len)
-                    processed_y = pad(processed_y, max_len)
-                    processed_z = pad(processed_z, max_len)
-                    processed = np.stack([processed_w, processed_x, processed_y, processed_z], axis=1)
+                    
+                    padded_channels = [pad(p, max_len) for p in processed_channels]
+                    processed = np.stack(padded_channels, axis=1)
 
                 else:  # Standard Receiver
                     rir = generate_rir(rx.amplitude_histogram, fs=self.fs, duration=rir_duration, random_phase=True)
@@ -191,9 +198,7 @@ class RadiosityRenderer(HybridRenderer):
                 if rirs[rx.name] is None:
                     rirs[rx.name] = rir
                 else:
-                    # This part is tricky for multiple sources.
                     # RIRs are source-dependent. For now, we overwrite (last source dominates).
-                    # A better approach would be to return RIRs per source.
                     rirs[rx.name] = rir
 
                 self.last_rirs[rx.name] = rir
@@ -203,15 +208,16 @@ class RadiosityRenderer(HybridRenderer):
                 else:
                     # Pad and add
                     curr = receiver_outputs[rx.name]
-                    is_ambisonic = len(processed.shape) > 1
+                    is_multichannel = processed.ndim > 1
+                    num_channels = processed.shape[1] if is_multichannel else 1
 
                     if len(processed) > len(curr):
-                        if is_ambisonic:
+                        if is_multichannel:
                             curr = np.pad(curr, ((0, len(processed) - len(curr)), (0, 0)))
                         else:
                             curr = np.pad(curr, (0, len(processed) - len(curr)))
                     elif len(curr) > len(processed):
-                        if is_ambisonic:
+                        if is_multichannel:
                             processed = np.pad(processed, ((0, len(curr) - len(processed)), (0, 0)))
                         else:
                             processed = np.pad(processed, (0, len(curr) - len(processed)))

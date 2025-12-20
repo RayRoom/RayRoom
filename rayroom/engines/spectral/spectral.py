@@ -17,17 +17,33 @@ def add_to_mix(mix, signal):
     mix = np.asarray(mix)
     signal = np.asarray(signal)
 
-    # Handle Ambisonic mixing: mono signal should be added to W-channel
-    if mix.ndim > 1 and signal.ndim == 1:  # mix is ambisonic, signal is mono
+    # Handle Multi-channel mixing: mono signal should be added to appropriate channels
+    if mix.ndim > 1 and signal.ndim == 1:  # mix is multi-channel, signal is mono
         shorter = min(len(mix), len(signal))
         # Create a copy to avoid modifying the original array in place
         new_mix = mix.copy()
-        new_mix[:shorter, 0] += signal[:shorter]
+        
+        if mix.shape[1] == 2:
+            # Binaural / Stereo: Add mono to both Left (0) and Right (1)
+            # Assuming simple mono-to-stereo upmix (phantom center)
+            new_mix[:shorter, 0] += signal[:shorter]
+            new_mix[:shorter, 1] += signal[:shorter]
+        else:
+            # Ambisonic (B-Format): Add mono to W-channel (0)
+            # W is omnidirectional, so adding omni pressure here makes sense.
+            new_mix[:shorter, 0] += signal[:shorter]
+            
         return new_mix
-    elif signal.ndim > 1 and mix.ndim == 1:  # signal is ambisonic, mix is mono
+    elif signal.ndim > 1 and mix.ndim == 1:  # signal is multi-channel, mix is mono
         shorter = min(len(mix), len(signal))
         new_signal = signal.copy()
-        new_signal[:shorter, 0] += mix[:shorter]
+        
+        if signal.shape[1] == 2:
+             new_signal[:shorter, 0] += mix[:shorter]
+             new_signal[:shorter, 1] += mix[:shorter]
+        else:
+             new_signal[:shorter, 0] += mix[:shorter]
+             
         return new_signal
 
     # Standard mono or ambisonic mixing (shapes must now be compatible)

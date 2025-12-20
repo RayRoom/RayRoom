@@ -202,7 +202,8 @@ class HybridRenderer:
             # Reset histograms
             for rx in self.room.receivers:
                 if isinstance(rx, AmbisonicReceiver):
-                    rx.w_histogram, rx.x_histogram, rx.y_histogram, rx.z_histogram = [], [], [], []
+                    for ch in rx.histograms:
+                        rx.histograms[ch] = []
                 else:
                     rx.amplitude_histogram = []
 
@@ -218,47 +219,64 @@ class HybridRenderer:
             for rx in self.room.receivers:
                 # Histograms are now combined on the receiver objects
                 if isinstance(rx, AmbisonicReceiver):
-                    # For Ambisonic, ISM provides only one histogram. We can add it to the 'W' channel.
-                    # This is a simplification. A more accurate approach would require directional ISM.
-                    rir_w = generate_rir(rx.w_histogram, self.fs, rir_duration, not interference)
-                    rir_x = generate_rir(rx.x_histogram, self.fs, rir_duration, not interference)
-                    rir_y = generate_rir(rx.y_histogram, self.fs, rir_duration, not interference)
-                    rir_z = generate_rir(rx.z_histogram, self.fs, rir_duration, not interference)
-                    rirs = [rir_w, rir_x, rir_y, rir_z]
+                    channel_rirs = []
+                    processed_channels = []
+
+                    # Generate RIRs for all configured channels
+                    for ch_name in rx.channel_names:
+                        hist = rx.histograms[ch_name]
+                        rir_ch = generate_rir(
+                            hist, self.fs, rir_duration, not interference
+                        )
+                        channel_rirs.append(rir_ch)
+                        processed_ch = fftconvolve(
+                            source_audio * gain, rir_ch, mode='full'
+                        )
+                        processed_channels.append(processed_ch)
 
                     # Store multi-channel RIR
-                    rir = np.stack(rirs, axis=1)
+                    rir = np.stack(channel_rirs, axis=1)
+
+                    # Stack processed audio
+                    max_len = max(len(p) for p in processed_channels)
+                    padded_channels = [np.pad(p, (0, max_len - len(p))) for p in processed_channels]
+                    processed = np.stack(padded_channels, axis=1)
+
                 else:
                     rir = generate_rir(rx.amplitude_histogram, self.fs, rir_duration, not interference)
-                    rirs = [rir]
+                    processed = fftconvolve(source_audio * gain, rir, mode='full')
+                    # Store as list for consistency if needed, but last_rirs expects array
+                    # Processed is 1D array here
 
                 # Store the RIR, last source overwrites.
                 self.last_rirs[rx.name] = rir
-
-                # 4. Convolve and Mix
-                source_audio = self.source_audios[source]
-                gain = self.source_gains.get(source, 1.0)
-
-                if isinstance(rx, AmbisonicReceiver):
-                    processed_channels = [fftconvolve(source_audio * gain, rir_ch, mode='full') for rir_ch in rirs]
-                    max_len = max(len(pc) for pc in processed_channels)
-                    padded_channels = [np.pad(pc, (0, max_len - len(pc))) for pc in processed_channels]
-                    processed = np.stack(padded_channels, axis=1)
-                else:
-                    processed = fftconvolve(source_audio * gain, rirs[0], mode='full')
 
                 if receiver_outputs[rx.name] is None:
                     receiver_outputs[rx.name] = processed
                 else:
                     # Pad and add
-                    current_len = receiver_outputs[rx.name].shape[0]
-                    new_len = processed.shape[0]
-                    if new_len > current_len:
-                        padding_shape = (new_len - current_len,) + receiver_outputs[rx.name].shape[1:]
-                        receiver_outputs[rx.name] = np.concatenate([receiver_outputs[rx.name], np.zeros(padding_shape)])
-                    elif current_len > new_len:
-                        padding_shape = (current_len - new_len,) + processed.shape[1:]
-                        processed = np.concatenate([processed, np.zeros(padding_shape)])
+                    current = receiver_outputs[rx.name]
+                    is_multichannel = processed.ndim > 1
+                    num_channels = processed.shape[1] if is_multichannel else 1
+
+                    if len(processed) > len(current):
+                        if is_multichannel:
+                            padding = np.zeros(
+                                (len(processed) - len(current), num_channels)
+                            )
+                        else:
+                            padding = np.zeros(len(processed) - len(current))
+                        current = np.concatenate((current, padding))
+                        receiver_outputs[rx.name] = current
+                    elif len(current) > len(processed):
+                        if is_multichannel:
+                            padding = np.zeros(
+                                (len(current) - len(processed), num_channels)
+                            )
+                        else:
+                            padding = np.zeros(len(current) - len(processed))
+                        processed = np.concatenate((processed, padding))
+
                     receiver_outputs[rx.name] += processed
 
         # Normalize final output
