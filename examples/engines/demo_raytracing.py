@@ -6,12 +6,11 @@ from rayroom import (
     RaytracingRenderer,
 )
 from rayroom.analytics.performance import PerformanceMonitor
-from rayroom.effects import presets
 from rayroom.room.database import DemoRoom
 from demo_utils import (
     generate_layouts,
     save_room_mesh,
-    process_effects_and_save,
+    run_metrics_and_save,
     save_performance_metrics,
 )
 from rayroom.core.constants import DEFAULT_SAMPLING_RATE
@@ -19,7 +18,7 @@ from rayroom.core.constants import DEFAULT_SAMPLING_RATE
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 
-def main(mic_type='mono', output_dir='outputs', effects=None,
+def main(mic_type='mono', output_dir='outputs',
          save_rir_flag=False, save_audio_flag=True, save_acoustics_flag=True,
          save_psychoacoustics_flag=False, save_mesh_flag=False):
     # 1. Define Room for Raytracing (8 square meters -> e.g., 4m x 2m or 2.83m x 2.83m)
@@ -76,9 +75,9 @@ def main(mic_type='mono', output_dir='outputs', effects=None,
         print("Error: No audio output generated.")
         return
 
-    process_effects_and_save(
+    run_metrics_and_save(
         mixed_audio, rir, mic.name, mic_type, DEFAULT_SAMPLING_RATE,
-        output_dir, "raytracing", effects, save_rir_flag=save_rir_flag,
+        output_dir, "raytracing", save_rir_flag=save_rir_flag,
         save_audio_flag=save_audio_flag, save_acoustics_flag=save_acoustics_flag,
         save_psychoacoustics_flag=save_psychoacoustics_flag
     )
@@ -123,17 +122,9 @@ if __name__ == "__main__":
         action='store_true',
         help="Save the room geometry as an OBJ mesh file."
     )
-    parser.add_argument(
-        '--effects',
-        type=str,
-        nargs='*',
-        default=None,
-        choices=list(presets.EFFECTS.keys()) + ["original"],
-        help="Apply a post-processing effect to the output audio."
-    )
     parser.set_defaults(save_audio=True, save_acoustics=True, save_psychoacoustics=False, save_mesh=True)
     args = parser.parse_args()
-    main(mic_type=args.mic, output_dir=args.output_dir, effects=args.effects, save_rir_flag=args.save_rir,
+    main(mic_type=args.mic, output_dir=args.output_dir, save_rir_flag=args.save_rir,
          save_audio_flag=args.save_audio, save_acoustics_flag=args.save_acoustics,
          save_psychoacoustics_flag=args.save_psychoacoustics,
          save_mesh_flag=args.save_mesh)

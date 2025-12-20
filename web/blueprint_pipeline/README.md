@@ -6,7 +6,7 @@ A visual node-based editor for creating RayRoom audio simulation pipelines, insp
 
 ## Features
 
-- **Visual Node Editor**: Drag-and-drop interface with nodes for Room, Sources, Receivers, Renderers, Audio Inputs, Metrics, Effects, and Output
+- **Visual Node Editor**: Drag-and-drop interface with nodes for Room, Sources, Receivers, Renderers, Audio Inputs, Metrics, and Output
 - **Blueprint-Style UI**: Dark theme with rounded nodes and connection lines, similar to Unreal Engine Blueprints
 - **Pipeline Execution**: Execute complete audio simulation pipelines directly from the visual graph
 - **Save/Load**: Save and load blueprint configurations as JSON files
@@ -67,13 +67,6 @@ A visual node-based editor for creating RayRoom audio simulation pipelines, insp
   - Performance: Runtime and memory usage
 - **Outputs**: Metrics data
 
-### Effects Node
-- **Type**: Post-processing audio effects
-- **Inputs**: Audio
-- **Parameters**:
-  - Effect: original, reverb, echo, lowpass, highpass
-- **Outputs**: Processed audio
-
 ### Output Node
 - **Type**: Save results to disk
 - **Inputs**: Audio, RIR, Metrics (optional)
@@ -110,7 +103,7 @@ A typical pipeline might look like:
 ```
 [Room] → [Source] → [Renderer] → [Metrics] → [Output]
          ↑          ↑            ↑
-    [Audio Input] [Receiver]  [Effects]
+    [Audio Input] [Receiver]
 ```
 
 ### Keyboard Shortcuts
@@ -165,7 +158,7 @@ A typical pipeline might look like:
 - File upload for audio files
 - Real-time preview of audio
 - Visual feedback during execution
-- More node types (custom room geometry, advanced effects)
+- More node types (custom room geometry, ...)
 - Undo/redo functionality
 - Node grouping and organization
 

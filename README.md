@@ -276,7 +276,7 @@ python web/room_creator/launch_room_creator.py
 
 ### 🗺️ Blueprint Editor
 
-Create complete audio simulation pipelines using a visual node-based editor. Connect nodes for rooms, renderers, effects, and metrics to build complex workflows.
+Create complete audio simulation pipelines using a visual node-based editor. Connect nodes for rooms, renderers and metrics to build complex workflows.
 
 ![Blueprint Editor](https://raw.githubusercontent.com/RayRoom/RayRoom/main/web/blueprint_pipeline/Screenshot.png)
 

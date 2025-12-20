@@ -13,15 +13,14 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from blueprint_server import BlueprintHandler, HTTPServer  # noqa: E402
+from blueprint_server import app  # noqa: E402
 
 
 def start_server():
-    """Start the HTTP server in a separate thread"""
+    """Start the Flask server in a separate thread"""
     port = 8000
-    server = HTTPServer(('localhost', port), BlueprintHandler)
-    print(f"Blueprint Editor Server running on http://localhost:{port}")
-    server.serve_forever()
+    # use_reloader=False is required when running in a separate thread
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 
 def main():

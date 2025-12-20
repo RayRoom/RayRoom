@@ -9,4 +9,3 @@ This section provides the API reference for the core components of the RayRoom l
    room
    core
    analytics
-   effects

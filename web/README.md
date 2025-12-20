@@ -55,7 +55,7 @@ A visual node-based editor for creating RayRoom audio simulation pipelines, insp
 
 ### Key Features
 
-- **Visual Node Editor**: Drag-and-drop interface with nodes for Room, Sources, Receivers, Renderers, Audio Inputs, Metrics, Effects, and Output
+- **Visual Node Editor**: Drag-and-drop interface with nodes for Room, Sources, Receivers, Renderers, Audio Inputs, Metrics, and Output
 - **Blueprint-Style UI**: Dark theme with rounded nodes and connection lines, similar to Unreal Engine Blueprints
 - **Pipeline Execution**: Execute complete audio simulation pipelines directly from the visual graph
 - **Save/Load**: Save and load blueprint configurations as JSON files
@@ -72,7 +72,7 @@ This will start the backend server on `http://localhost:8000` and open the bluep
 
 - Design complex audio simulation pipelines without writing code
 - Experiment with different renderers (Hybrid, Radiosity, Spectral, Raytracing)
-- Apply audio effects and compute acoustic metrics
+- Compute acoustic and psychoacoustics metrics
 - Save and share pipeline configurations
 
 For detailed documentation, see [Blueprint Editor README](./blueprint_pipeline/README.md).
@@ -86,7 +86,7 @@ These tools are designed to work together:
 1. **Design in Room Creator**: Create your room geometry, place objects, and configure sources/receivers
 2. **Export Room Configuration**: Save the room as JSON from Room Creator
 3. **Import in Blueprint Editor**: Load the room configuration into a Room node
-4. **Build Pipeline**: Add renderers, effects, metrics, and output nodes
+4. **Build Pipeline**: Add renderers, metrics, and output nodes
 5. **Execute**: Run the complete simulation pipeline from the visual graph
 
 ### Example Workflow
@@ -98,7 +98,7 @@ python web/room_creator/launch_room_creator.py
 
 # Step 2: Create pipeline
 python web/blueprint_pipeline/launch_blueprint_editor.py
-# ... load my_room.json, add renderer, effects, execute ...
+# ... load my_room.json, add renderer, execute ...
 ```
 
 ---

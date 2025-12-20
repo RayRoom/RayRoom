@@ -18,7 +18,6 @@ from rayroom.room.visualize import (
     plot_decay_curve,
     plot_spectrogram,
 )
-from rayroom.effects import presets
 
 
 def save_audio_files(mixed_audio, mic_type, fs, output_dir, filename_prefix):
@@ -162,45 +161,33 @@ def compute_and_save_psychoacoustic_metrics(mixed_audio, fs, output_dir, filenam
     print(f"Psychoacoustic metrics saved to {metrics_path}")
 
 
-def process_effects_and_save(mixed_audio, rir, mic_name, mic_type, fs,
-                             output_dir, simulation_name, effects=None,
-                             save_rir_flag=False, save_audio_flag=False,
-                             save_acoustics_flag=False,
-                             save_psychoacoustics_flag=False):
+def run_metrics_and_save(
+    mixed_audio,
+    rir,
+    mic_name,
+    mic_type,
+    fs,
+    output_dir,
+    simulation_name,
+    save_rir_flag=False,
+    save_audio_flag=False,
+    save_acoustics_flag=False,
+    save_psychoacoustics_flag=False
+):
     """
-    Processes different audio effects, saves the audio, and computes metrics for each.
+    Saves the audio and computes metrics for each ones available.
     """
 
-    effects_to_process = effects if effects is not None else ["original"]
+    os.makedirs(output_dir, exist_ok=True)
 
-    for effect in effects_to_process:
-        effected_audio = mixed_audio.copy()
-        filename_prefix = f"{simulation_name}_simulation_{effect}"
-
-        if effect and effect != "original":
-            print(f"Applying effect: {effect}")
-            effect_func = presets.get_effect(effect)
-            if effect_func:
-                effected_audio = effect_func(effected_audio, fs)
-            else:
-                print(f"Warning: Effect '{effect}' not found.")
-                continue
-
-            current_output_dir = os.path.join(output_dir, effect)
-        else:
-            # "original" case
-            current_output_dir = os.path.join(output_dir, "original")
-
-        os.makedirs(current_output_dir, exist_ok=True)
-
-        if save_rir_flag:
-            save_rir(rir, mic_name, fs, output_dir, simulation_name)
-        if save_audio_flag:
-            save_audio_files(effected_audio, mic_type, fs, current_output_dir, filename_prefix)
-        if save_acoustics_flag:
-            compute_and_save_metrics(rir, effected_audio, mic_name, mic_type, fs, current_output_dir, simulation_name)
-        if save_psychoacoustics_flag:
-            compute_and_save_psychoacoustic_metrics(effected_audio, fs, current_output_dir, simulation_name, mic_name)
+    if save_rir_flag:
+        save_rir(rir, mic_name, fs, output_dir, simulation_name)
+    if save_audio_flag:
+        save_audio_files(mixed_audio, mic_type, fs, output_dir, simulation_name)
+    if save_acoustics_flag:
+        compute_and_save_metrics(rir, mixed_audio, mic_name, mic_type, fs, output_dir, simulation_name)
+    if save_psychoacoustics_flag:
+        compute_and_save_psychoacoustic_metrics(mixed_audio, fs, output_dir, simulation_name, mic_name)
 
 
 def save_performance_metrics(monitor, output_dir, demo_name):
