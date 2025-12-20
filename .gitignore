@@ -17,6 +17,7 @@ docs/_build/
 !web/room_creator/Screenshot.png
 
 !examples/engines/audio_sources/
+!examples/engines/audio_sources/*.wav
 
 # Allow wav files from docs/_static
 !docs/_static/*.wav
