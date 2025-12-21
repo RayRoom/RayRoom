@@ -47,93 +47,44 @@ class FDTDSolver:
         # p_next = 2*p - p_prev + (c*dt/dx)^2 * Laplacian(p)
         self.courant_sq = (C_SOUND * self.dt / self.dx) ** 2
 
-        # Estimate boundary damping factor from room materials
-        # Average absorption coefficient of walls
-        abs_coeffs = []
+        # 4. Boundary Setup
+        # Instead of global damping, we use a reflection coefficient at the walls.
+        # This simulates impedance/admittance boundaries (Robin condition approximation).
+        # reflection_coeff (R):
+        # R = 1.0 (Rigid/Hard wall)
+        # R = -1.0 (Pressure release/Open window)
+        # R = 0.9 - 0.98 (Typical wall absorption)
+        
+        # We estimate an average R from the room materials.
+        # Absorption alpha = 1 - R^2  => R = sqrt(1 - alpha)
+        
+        avg_alpha = 0.0
+        total_area = 0.0
         for w in self.room.walls:
-            mat = w.material
-            val = np.mean(mat.absorption) if np.ndim(mat.absorption) > 0 else mat.absorption
-            abs_coeffs.append(val)
-
-        # Impedance boundary condition approximation for FDTD
-        # Reflection R = sqrt(1 - alpha)
-        # Damping per step ~ R? No.
-        # Ideally, we use an impedance update equation at boundaries.
-        # Simplified "lossy layer": apply a decay factor at the boundary mask.
-        # If is_air is 1 (inside), factor is 1.0.
-        # If is_air is 0 (boundary), factor is R?
-        # No, standard FDTD puts nodes ON the boundary.
-        # Our mask `is_air` is binary.
-        # Let's create a `damping_grid`.
-
-        # Simple "Lossy Wall" approximation:
-        # Inside air: damping = 1.0 (no loss)
-        # At wall interface (neighbors of air that are not air): damping = R
-        # But we don't simulate inside walls.
-        # We simulate Air.
-        # So we need to dampen the pressure *at the edge of air*.
-
-        # Let's refine the voxelization to identify boundary nodes.
-        # For MVP: Just apply a global decay term to the wave equation to simulate absorption.
-        # T60 approx?
-        # Better: Apply decay to p_next everywhere? That simulates air absorption.
-        # We want wall absorption.
-
-        # Let's use a simplified approach:
-        # Apply a uniform damping factor corresponding to expected T60 of the LF band.
-        # This prevents infinite ringing (tube effect).
-
-        # Sabine T60 = 0.161 * V / (Sum(S*alpha))
-        # decay_constant = 6.91 / T60
-        # per_step_decay = exp(-decay_constant * dt)
-
-        # Calculate V and A
-        # More precise:
-        # Volume = sum(is_air) * dx^3
-        volume = np.sum(self.is_air) * (self.dx ** 3)
-
-        # Surface Area?
-        # Hard to estimate from voxels without marching cubes.
-        # Use room walls directly.
-        surface_area = 0.0
-        total_absorption_area = 0.0
-
-        for w in self.room.walls:
-            # Area of polygon
-            # Shoebox walls are rectangles: width * height
-            # Generic polygon area: 0.5 * |cross sum|
-            # Let's assume rectangular for simplicity or calc generic
-            # Generic area of 3D planar polygon:
-            # Project to 2D plane (max normal component) and calc 2D area / normal_component?
-            # Or 0.5 * norm(sum(cross(vi, vi+1)))
-
-            # Vertices
-            v = w.vertices
-            n = len(v)
-            area_vec = np.array([0.0, 0.0, 0.0])
-            for i in range(n):
-                area_vec += np.cross(v[i], v[(i + 1) % n])
-            area = 0.5 * np.linalg.norm(area_vec)
-
             mat = w.material
             alpha = np.mean(mat.absorption) if np.ndim(mat.absorption) > 0 else mat.absorption
-
-            surface_area += area
-            total_absorption_area += area * alpha
-
-        if total_absorption_area > 0:
-            t60 = 0.161 * volume / total_absorption_area
-            decay_constant = 6.91 / t60
-            self.damping_factor = np.exp(-decay_constant * self.dt)
+            
+            # Estimate area
+            # Simple approximation for weighting
+            area = 1.0 
+            avg_alpha += alpha * area
+            total_area += area
+        
+        if total_area > 0:
+            avg_alpha /= total_area
         else:
-            self.damping_factor = 1.0
-            t60 = float('inf')
+            avg_alpha = 0.1 # Default small absorption
 
-        print(f"Estimated LF T60: {t60:.2f}s. Damping factor: {self.damping_factor:.6f}")
+        self.reflection_coeff = np.sqrt(1.0 - avg_alpha)
+        # Clamp R to avoid instability or weirdness
+        self.reflection_coeff = np.clip(self.reflection_coeff, 0.5, 0.995)
+        
+        print(f"FDTD Boundary: Average Alpha={avg_alpha:.2f}, Reflection Coeff={self.reflection_coeff:.4f}")
 
     def _voxelize_room(self):
         """
         Discretize the room geometry into a boolean grid (Air/Solid).
+        And precompute neighbor masks for boundary handling.
         """
         # Find bounds
         all_verts = []
@@ -202,6 +153,25 @@ class FDTDSolver:
                 ] = False
 
         print(f"Voxelization complete. Air volume fraction: {np.mean(self.is_air):.2%}")
+        
+        # Precompute boundary neighbor masks
+        # True if neighbor is WALL (not air)
+        # Slices correspond to the 'center' region [1:-1, 1:-1, 1:-1]
+        
+        # x+1
+        self.is_wall_x1 = ~self.is_air[2:, 1:-1, 1:-1]
+        # x-1
+        self.is_wall_x0 = ~self.is_air[:-2, 1:-1, 1:-1]
+        
+        # y+1
+        self.is_wall_y1 = ~self.is_air[1:-1, 2:, 1:-1]
+        # y-1
+        self.is_wall_y0 = ~self.is_air[1:-1, :-2, 1:-1]
+        
+        # z+1
+        self.is_wall_z1 = ~self.is_air[1:-1, 1:-1, 2:]
+        # z-1
+        self.is_wall_z0 = ~self.is_air[1:-1, 1:-1, :-2]
 
     def _world_to_grid(self, pos):
         idx = (np.array(pos) - self.origin) / self.dx
@@ -225,6 +195,7 @@ class FDTDSolver:
 
         # C^2
         C2 = self.courant_sq
+        R = self.reflection_coeff
 
         print(f"Running FDTD for {steps} steps...")
 
@@ -248,6 +219,7 @@ class FDTDSolver:
             p_c = self.p[1:-1, 1:-1, 1:-1]
             p_prev_c = self.p_prev[1:-1, 1:-1, 1:-1]
 
+            # Get neighbors from grid (values in walls are 0 due to masking at end of step)
             p_x1 = self.p[2:, 1:-1, 1:-1]
             p_x0 = self.p[:-2, 1:-1, 1:-1]
             p_y1 = self.p[1:-1, 2:, 1:-1]
@@ -255,17 +227,24 @@ class FDTDSolver:
             p_z1 = self.p[1:-1, 1:-1, 2:]
             p_z0 = self.p[1:-1, 1:-1, :-2]
 
-            lap_sum = (p_x1 + p_x0 + p_y1 + p_y0 + p_z1 + p_z0 - 6.0 * p_c)
+            # Apply boundary correction
+            # If neighbor is wall, use R * p_c effectively
+            # Since p_neighbor is 0 in wall, we add R * p_c where is_wall is True
+            
+            term_x1 = p_x1 + (self.is_wall_x1 * R * p_c)
+            term_x0 = p_x0 + (self.is_wall_x0 * R * p_c)
+            term_y1 = p_y1 + (self.is_wall_y1 * R * p_c)
+            term_y0 = p_y0 + (self.is_wall_y0 * R * p_c)
+            term_z1 = p_z1 + (self.is_wall_z1 * R * p_c)
+            term_z0 = p_z0 + (self.is_wall_z0 * R * p_c)
+
+            lap_sum = (term_x1 + term_x0 + term_y1 + term_y0 + term_z1 + term_z0 - 6.0 * p_c)
 
             self.p_next[1:-1, 1:-1, 1:-1] = 2.0 * p_c - p_prev_c + C2 * lap_sum
 
-            # 3. Apply Boundary Conditions / Damping
-            # Mask: Forces 0 outside
+            # 3. Apply Mask
+            # Forces 0 inside walls (keeping them clean for next step's "p_neighbor is 0" assumption)
             self.p_next *= self.is_air
-
-            # Damping: Apply global exponential decay to simulate wall absorption
-            # This is an approximation to avoid implementing impedance boundaries.
-            self.p_next *= self.damping_factor
 
             # 4. Record Receivers
             for r, idx in rec_indices:

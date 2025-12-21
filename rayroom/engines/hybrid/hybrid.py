@@ -199,6 +199,9 @@ class HybridRenderer:
             if verbose:
                 print(f"Simulating Source: {source.name} (ISM Order: {ism_order})")
 
+            source_audio = self.source_audios[source]
+            gain = self.source_gains[source]
+
             # Reset histograms
             for rx in self.room.receivers:
                 if isinstance(rx, AmbisonicReceiver):

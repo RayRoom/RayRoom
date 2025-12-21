@@ -45,6 +45,18 @@ Upon hitting a surface, the ray's new direction is determined by the material's 
 -   **Air Absorption:** The energy loss of a ray as it travels through the air is a critical component. This implementation uses the **ISO 9613-1** standard, which provides a detailed model for frequency-dependent atmospheric attenuation as a function of temperature, humidity, and atmospheric pressure.
 -   **Stochastic Process:** The initial directions of the rays from the source are typically sampled from a uniform spherical distribution to ensure isotropic emission. The entire process is stochastic, meaning that running the simulation multiple times with the same parameters will produce slightly different, but statistically similar, results.
 
+## Feature Support
+
+| Feature | Support | Notes |
+| :--- | :--- | :--- |
+| **Furniture / Obstacles** | ✅ Yes | Occlusion is calculated for all objects. |
+| **Frequency Dependence** | ✅ Yes | Via frequency-dependent material absorption. |
+| **Diffraction** | ❌ No | Geometric method, valid for high frequencies. |
+| **Diffusion / Scattering** | ✅ Yes | Stochastic scattering based on material properties. |
+| **Late Reverberation** | ✅ Yes | Efficiently models the diffuse tail. |
+| **Transmission** | ✅ Yes | Stochastic transmission through walls. |
+| **Source Directivity** | ✅ Yes | Supports various polar patterns. |
+
 ## Seminal Papers
 
 1.  **Krokstad, A., Strøm, S., & Sørsdal, S. (1968).** *Calculating the acoustical room response by the use of a ray tracing technique*. Journal of Sound and Vibration, 8(1), 118-125.

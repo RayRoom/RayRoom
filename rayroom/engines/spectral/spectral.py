@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.signal import fftconvolve
-from scipy.signal import butter, sosfilt, resample
+from scipy.signal import butter, sosfilt, sosfiltfilt, resample
 
 from .fdtd import FDTDSolver
 from ..hybrid.hybrid import HybridRenderer
@@ -22,7 +22,7 @@ def add_to_mix(mix, signal):
         shorter = min(len(mix), len(signal))
         # Create a copy to avoid modifying the original array in place
         new_mix = mix.copy()
-        
+
         if mix.shape[1] == 2:
             # Binaural / Stereo: Add mono to both Left (0) and Right (1)
             # Assuming simple mono-to-stereo upmix (phantom center)
@@ -110,7 +110,7 @@ class SpectralRenderer(HybridRenderer):
 
         # 1. High-pass filter the geometric part to get the HF audio
         hpf_geo_outputs = {
-            rx_name: sosfilt(sos_hp, audio, axis=0) if audio is not None else None
+            rx_name: sosfiltfilt(sos_hp, audio, axis=0) if audio is not None else None
             for rx_name, audio in geo_audio_dict.items()
         }
 
@@ -122,7 +122,7 @@ class SpectralRenderer(HybridRenderer):
                 print(f"  FDTD for Source: {source.name}")
 
             # Run FDTD to get the low-frequency impulse response (IR)
-            fdtd_ir, fdtd_fs = self.fdtd.run(duration=min(rir_duration, 0.5),
+            fdtd_ir, fdtd_fs = self.fdtd.run(duration=rir_duration,
                                              sources=[source],
                                              receivers=self.room.receivers)
 
@@ -138,7 +138,7 @@ class SpectralRenderer(HybridRenderer):
                     resampled_ir = resample(raw_ir, num_samples)
 
                     # Low-pass filter the resampled IR
-                    filtered_ir = sosfilt(sos_lp, resampled_ir)
+                    filtered_ir = sosfiltfilt(sos_lp, resampled_ir)
 
                     # Convolve the filtered IR with the source audio to get the LF audio
                     processed_lf_audio = fftconvolve(src_audio * gain, filtered_ir, mode='full')

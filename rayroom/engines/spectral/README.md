@@ -56,6 +56,18 @@ graph LR
 
 -   **Dispersion:** At higher frequencies (relative to the grid spacing), the numerical simulation can introduce inaccuracies where waves of different frequencies travel at slightly different speeds. This is known as numerical dispersion and limits the maximum frequency that an FDTD grid can accurately simulate, reinforcing the need for a hybrid approach.
 
+## Feature Support
+
+| Feature | Support | Notes |
+| :--- | :--- | :--- |
+| **Furniture / Obstacles** | ✅ Yes | Objects are voxelized into the FDTD grid. |
+| **Frequency Dependence** | ✅ Yes | Via impedance boundaries (LF) and material properties (HF). |
+| **Diffraction** | ✅ Yes | Modeled by FDTD at low frequencies. |
+| **Diffusion / Scattering** | ✅ Yes | Via the Hybrid component (HF). |
+| **Late Reverberation** | ✅ Yes | Combined LF (FDTD) and HF (Hybrid) response. |
+| **Transmission** | ✅ Yes (HF) | Via the Ray Tracing component (High Freq). |
+| **Source Directivity** | ✅ Yes | Supports various polar patterns. |
+
 ## Seminal Papers
 
 1.  **Yee, K. S. (1966).** *Numerical solution of initial boundary value problems involving Maxwell's equations in isotropic media*. IEEE Transactions on Antennas and Propagation, 14(3), 302-307.

@@ -47,6 +47,18 @@ The direction of the reflected ray is determined by a combination of specular re
 - **Air Absorption:** The energy loss due to air is modeled according to the **ISO 9613-1** standard, which accounts for frequency, temperature, humidity, and pressure.
 - **Material Properties:** Wall materials have frequency-dependent absorption $\alpha(f)$ and scattering $s(f)$ coefficients, allowing for more realistic acoustic modeling.
 
+## Feature Support
+
+| Feature | Support | Notes |
+| :--- | :--- | :--- |
+| **Furniture / Obstacles** | ✅ Yes | Occlusion is calculated for all objects. |
+| **Frequency Dependence** | ✅ Yes | Via frequency-dependent material absorption. |
+| **Diffraction** | ❌ No | Geometric method, valid for high frequencies. |
+| **Diffusion / Scattering** | ✅ Yes | Via the Ray Tracing component. |
+| **Late Reverberation** | ✅ Yes | Modeled by Ray Tracing. |
+| **Transmission** | ✅ Yes | Via the Ray Tracing component. |
+| **Source Directivity** | ✅ Yes | Supports various polar patterns. |
+
 ## Seminal Papers
 
 1.  **Allen, J. B., & Berkley, D. A. (1979).** *Image method for efficiently simulating small-room acoustics*. The Journal of the Acoustical Society of America, 65(4), 943-950.

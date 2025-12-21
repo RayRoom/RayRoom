@@ -50,6 +50,18 @@ Solving the system of linear equations for all patches provides the steady-state
 -   **Energy Propagation:** The simulation is time-dependent. In each time step, every patch "shoots" its energy to all other visible patches. The energy arrives at the other patches after a delay corresponding to the travel time.
 -   **Hybrid Approach:** In practice, pure radiosity struggles with the initial specular reflections. Therefore, this engine is often implemented as a hybrid method, using the **Image Source Method (ISM)** to generate the early, distinct reflections, and radiosity to model the subsequent diffuse tail.
 
+## Feature Support
+
+| Feature | Support | Notes |
+| :--- | :--- | :--- |
+| **Furniture / Obstacles** | ✅ Yes | Surfaces including furniture are discretized into patches. |
+| **Frequency Dependence** | ✅ Yes | Via frequency-dependent material absorption. |
+| **Diffraction** | ❌ No | Geometric method, valid for high frequencies. |
+| **Diffusion / Scattering** | ✅ Yes | Models ideal diffuse energy exchange. |
+| **Late Reverberation** | ✅ Yes | Modeled by Radiosity. |
+| **Transmission** | ❌ No | Walls are treated as opaque reflecting surfaces. |
+| **Source Directivity** | ✅ Yes | Via the ISM component (early reflections). |
+
 ## Seminal Papers
 
 1.  **Goral, C. M., Torrance, K. E., Greenberg, D. P., & Battaile, B. (1984).** *Modeling the Interaction of Light Between Diffuse Surfaces*. ACM SIGGRAPH Computer Graphics, 18(3), 213–222.

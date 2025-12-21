@@ -43,6 +43,18 @@ If the path is valid, its contribution to the RIR is calculated:
 -   **Visibility Check:** A crucial part of the algorithm is the visibility check, which ensures that the path from an image source to the receiver is physically plausible and not obstructed.
 -   **Frequency-Dependence:** Wall absorption is frequency-dependent. The simulation is often run independently for different frequency bands, and the resulting impulse responses are combined to produce the final broadband RIR.
 
+## Feature Support
+
+| Feature | Support | Notes |
+| :--- | :--- | :--- |
+| **Furniture / Obstacles** | ✅ Yes | Occlusion is calculated for all objects. |
+| **Frequency Dependence** | ✅ Yes | Via frequency-dependent material absorption. |
+| **Diffraction** | ❌ No | Geometric method, valid for high frequencies. |
+| **Diffusion / Scattering** | ❌ No | Models only specular reflections. |
+| **Late Reverberation** | ❌ No | Computationally expensive for high orders. |
+| **Transmission** | ❌ No | Walls are treated as opaque reflecting surfaces. |
+| **Source Directivity** | ✅ Yes | Supports various polar patterns. |
+
 ## Seminal Papers
 
 1.  **Allen, J. B., & Berkley, D. A. (1979).** *Image method for efficiently simulating small-room acoustics*. The Journal of the Acoustical Society of America, 65(4), 943-950.
