@@ -31,6 +31,7 @@ rayroom/__pycache__/room.cpython-314.pyc
 rayroom/__pycache__/visualize.cpython-314.pyc
 .DS_Store
 docs/_build/.DS_Store
+examples/engines/outputs_audios_H1
 examples/outputs/medical_room_meshes/MedicalRoom4_5M.json
 examples/outputs/medical_room_meshes/MedicalRoom6M.json
 examples/outputs/medical_room_meshes/MedicalRoom8M.json

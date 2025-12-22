@@ -230,7 +230,7 @@ class FDTDSolver:
             # Apply boundary correction
             # If neighbor is wall, use R * p_c effectively
             # Since p_neighbor is 0 in wall, we add R * p_c where is_wall is True
-            
+
             term_x1 = p_x1 + (self.is_wall_x1 * R * p_c)
             term_x0 = p_x0 + (self.is_wall_x0 * R * p_c)
             term_y1 = p_y1 + (self.is_wall_y1 * R * p_c)

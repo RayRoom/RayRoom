@@ -72,6 +72,8 @@ def main(mic_type='mono', output_dir='outputs',
         )
     save_performance_metrics(monitor, output_dir, "radiosity")
 
+    print(rirs)
+
     # 9. Save Result
     mixed_audio = outputs[mic.name]
     rir = rirs[mic.name]

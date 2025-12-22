@@ -23,7 +23,11 @@ def main(mic_type='mono', output_dir='outputs',
          save_psychoacoustics_flag=False, save_mesh_flag=False, ambisonic_order="1st_order"):
     # 1. Define Room for Raytracing (8 square meters -> e.g., 4m x 2m or 2.83m x 2.83m)
     # Using 4m x 2m x 2.5m height
-    room, sources, mic = DemoRoom(mic_type=mic_type, ambisonic_order=ambisonic_order).create_room()
+    room, sources, mic = DemoRoom(
+        mic_type=mic_type,
+        ambisonic_order=ambisonic_order,
+        with_furniture=True
+    ).create_room()
     src1 = sources["src1"]
     src2 = sources["src2"]
     src_bg = sources["src_bg"]

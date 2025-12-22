@@ -63,7 +63,7 @@ def main(mic_type='mono', output_dir='outputs',
     # Note: High ISM orders are computationally expensive (exponential growth).
     # Order 5 or 6 is usually a practical limit for full RIRs in complex rooms,
     # but for simple rooms it can go higher.
-    ism_order = 5 
+    ism_order = 5
     print(f"  - ISM Order: {ism_order}")
 
     with PerformanceMonitor() as monitor:

@@ -259,6 +259,15 @@ class Furniture(Object3D):
 
         # Translate vertices to the final world position
         self.vertices = vertices + self.position
+
+        # Calculate AABB (Axis-Aligned Bounding Box)
+        self.aabb_min = np.min(self.vertices, axis=0)
+        self.aabb_max = np.max(self.vertices, axis=0)
+        # Add a small padding to avoid flat boxes (e.g. 2D planes) having zero volume which might cause issues
+        padding = 1e-4
+        self.aabb_min -= padding
+        self.aabb_max += padding
+
         self.faces = faces
 
         # Precompute normals and plane equations for faces

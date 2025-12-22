@@ -5,6 +5,7 @@ from ...core.physics import air_absorption_coefficient
 from ...core.constants import C_SOUND
 from ...core.geometry import (
     ray_plane_intersection,
+    ray_box_intersection,
     is_point_in_polygon,
     reflect_vector,
     random_direction_hemisphere,
@@ -182,6 +183,11 @@ class RayTracer:
 
             # Check furniture
             for furn in self.room.furniture:
+                # Optimization: AABB Check
+                t_box = ray_box_intersection(ray_origin, ray_dir, furn.aabb_min, furn.aabb_max)
+                if t_box is None or t_box > t_min:
+                    continue
+
                 # Check all faces (naive)
                 # Bounding box check could optimize
                 for f_idx, normal in enumerate(furn.face_normals):

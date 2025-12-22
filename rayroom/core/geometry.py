@@ -70,6 +70,36 @@ def ray_plane_intersection(ray_origin, ray_dir, plane_point, plane_normal):
     return t
 
 
+def ray_box_intersection(ray_origin, ray_dir, box_min, box_max):
+    """
+    Check intersection between a ray and an Axis-Aligned Bounding Box (AABB).
+    
+    :param ray_origin: Origin of the ray [x, y, z]
+    :param ray_dir: Direction of the ray [x, y, z]
+    :param box_min: Minimum coordinates of the box [x, y, z]
+    :param box_max: Maximum coordinates of the box [x, y, z]
+    :return: Distance to intersection t_near if hit, else None.
+    """
+    # Avoid division by zero
+    inv_dir = 1.0 / (ray_dir + 1e-9) 
+    
+    t1 = (box_min - ray_origin) * inv_dir
+    t2 = (box_max - ray_origin) * inv_dir
+    
+    tmin = np.minimum(t1, t2)
+    tmax = np.maximum(t1, t2)
+    
+    t_near = np.max(tmin)
+    t_far = np.min(tmax)
+    
+    if t_near > t_far:
+        return None
+    if t_far < 0:
+        return None # Box is behind ray
+        
+    return t_near
+
+
 def is_point_in_polygon(point, vertices, normal):
     """Checks if a point is inside a 3D polygon.
 
@@ -144,7 +174,7 @@ def reflect_vector(incident, normal):
 
             incident_dir = rt.core.geometry.normalize(np.array([1, -1, 0]))
             surface_normal = np.array([0, 1, 0])
-            
+
             reflected_dir = rt.core.geometry.reflect_vector(
                 incident_dir, surface_normal
             )
