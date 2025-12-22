@@ -21,6 +21,19 @@ from ...room.objects import AmbisonicReceiver
 from ...core.utils import generate_rir
 
 
+def _run_simulation_task(tracer, source, n_rays, max_hops, record_paths, verbose=True):
+    """
+    Top-level helper function for pickling support in ProcessPoolExecutor.
+    Runs the simulation for a single source.
+    """
+    if verbose:
+        print(f"Simulating Source: {source.name} (PID: {os.getpid()})")
+    
+    # tracer contains the room object which is picklable
+    paths, hits = tracer.run(source, n_rays, max_hops, record_paths=record_paths)
+    return source, paths, hits
+
+
 class RaytracingRenderer:
     """Handles the audio rendering pipeline for a Room using ray tracing.
 
@@ -139,7 +152,7 @@ class RaytracingRenderer:
         return data
 
     def render(self, n_rays=20000, max_hops=50, rir_duration=2.0,
-               verbose=True, record_paths=False, interference=False):
+               verbose=True, record_paths=False, interference=False, parallel=True):
         """Runs the full ray tracing and audio rendering pipeline.
 
         This is the main method to execute a simulation. It performs the following steps:
@@ -169,6 +182,9 @@ class RaytracingRenderer:
                              (the default for `generate_rir`) results in an
                              energy-based RIR. Defaults to `False`.
         :type interference: bool, optional
+        :param parallel: If `True`, process sources in parallel using ProcessPoolExecutor.
+                         Defaults to `True`.
+        :type parallel: bool, optional
         :return: A tuple containing a dictionary of receiver outputs (audio) and a
                  dictionary of the last computed RIR for each receiver. If
                  `record_paths` is `True`, the ray paths are also returned.
@@ -190,11 +206,53 @@ class RaytracingRenderer:
             print("No sources with assigned audio found in the room.")
             return receiver_outputs
 
-        for source in valid_sources:
-            if verbose:
-                print(f"Simulating Source: {source.name}")
+        import concurrent.futures
 
-            # Clear receiver histograms for this source
+        results_to_process = []
+
+        if parallel and len(valid_sources) > 1:
+            if verbose:
+                print(f"Running simulation in parallel for {len(valid_sources)} sources...")
+            
+            # Use ProcessPoolExecutor for CPU-bound raytracing
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                futures = {
+                    executor.submit(
+                        _run_simulation_task, 
+                        self._tracer,
+                        s, n_rays, max_hops, record_paths
+                    ): s for s in valid_sources
+                }
+                
+                for future in concurrent.futures.as_completed(futures):
+                    original_source = futures[future]
+                    try:
+                        # We ignore the source returned by the worker as it is a copy
+                        _, res_paths, res_hits = future.result()
+                        results_to_process.append((original_source, res_paths, res_hits))
+                    except Exception as e:
+                        print(f"Error processing source: {e}")
+                        import traceback
+                        traceback.print_exc()
+        else:
+            # Serial execution
+            for source in valid_sources:
+                 res_source, res_paths, res_hits = _run_simulation_task(self._tracer, source, n_rays, max_hops, record_paths, verbose=verbose)
+                 results_to_process.append((res_source, res_paths, res_hits))
+
+        # Process aggregated results
+        for source, paths, hits in results_to_process:
+            
+            # 1. Update paths
+            if record_paths and paths:
+                all_paths.update(paths)
+
+            # 2. Update histograms from hits (since parallel workers worked on copies)
+            # First, clear previous histograms for this source (though in this architecture we're just adding up)
+            # Actually, we need to clear them before adding hits for THIS source, 
+            # but since we are mixing audio at the end, we can just compute RIRs per source.
+            
+            # Temporarily clear receivers to compute RIR for this source only
             for rx in self.room.receivers:
                 if isinstance(rx, AmbisonicReceiver):
                     for ch in rx.histograms:
@@ -202,17 +260,23 @@ class RaytracingRenderer:
                 else:
                     rx.amplitude_histogram = []
 
-            # Run ray tracer for the single source
-            paths = self._tracer.run(source, n_rays, max_hops, record_paths=record_paths)
+            # Populate histograms from hits
+            receiver_map = {rx.name: rx for rx in self.room.receivers}
+            for hit in hits:
+                rx_name = hit['receiver_name']
+                if rx_name in receiver_map:
+                    rx = receiver_map[rx_name]
+                    if isinstance(rx, AmbisonicReceiver):
+                        rx.record(hit['time'], hit['energy'], hit['direction'])
+                    else:
+                        rx.record(hit['time'], hit['energy'])
 
-            if record_paths and paths:
-                all_paths.update(paths)
-
-            # Generate RIR and convolve for each receiver
+            # 3. Generate RIR and convolve
             source_audio = self.source_audios[source]
             gain = self.source_gains.get(source, 1.0)
 
             for rx in self.room.receivers:
+                # ... (RIR generation logic same as before) ...
                 if isinstance(rx, AmbisonicReceiver):
                     channel_rirs = []
                     processed_channels = []
@@ -254,7 +318,7 @@ class RaytracingRenderer:
                         source_audio * gain, rir, mode='full'
                     )
 
-                # Accumulate RIRs - for now, last source overwrites
+                # Accumulate RIRs - for now, last source overwrites (or we could mix them)
                 self.last_rirs[rx.name] = rir
 
                 if receiver_outputs[rx.name] is None:

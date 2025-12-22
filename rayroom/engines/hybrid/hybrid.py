@@ -1,20 +1,6 @@
-"""
-This module implements a hybrid acoustic rendering engine.
-
-The `HybridRenderer` class combines two popular methods in geometrical acoustics:
-  * **Image Source Method (ISM):** Used for accurately calculating early,
-    specular reflections. This method is deterministic and precise for
-    low-order reflections in simple geometries.
-  * **Ray Tracing:** Used for simulating the late, diffuse reverberant tail
-    of the room's response. Ray tracing is a stochastic method that is
-    efficient for modeling high-order reflections and diffuse scattering.
-
-By combining these two techniques, the hybrid approach aims to capture the
-strengths of both, providing a more perceptually accurate and computationally
-efficient simulation than either method alone.
-"""
 import os
 import numpy as np
+import concurrent.futures
 from scipy.io import wavfile
 from scipy.signal import fftconvolve
 
@@ -22,6 +8,50 @@ from ..ism import ImageSourceEngine
 from ..raytracer.core import RayTracer
 from ...core.utils import generate_rir
 from ...room.objects import AmbisonicReceiver
+
+
+def _run_hybrid_task(ism_engine, tracer, source, ism_order, n_rays, max_hops, record_paths, verbose=True):
+    """
+    Helper function to run both ISM and Ray Tracing for a single source.
+    This function is intended to be pickled and run in a separate process.
+    """
+    if verbose:
+        print(f"Simulating Source: {source.name} (PID: {os.getpid()})")
+    
+    # 1. Run ISM
+    # Note: ism_engine.run modifies histograms in place on the receivers.
+    # Since we are in a separate process, the receivers in `ism_engine.room` are copies.
+    # We need to extract the histogram data to return it.
+    
+    # We need to clear histograms first because the room object might be reused in the worker 
+    # (though typically forking creates a copy, if using 'spawn' it's a fresh pickle)
+    for rx in ism_engine.room.receivers:
+        if isinstance(rx, AmbisonicReceiver):
+            for ch in rx.histograms:
+                rx.histograms[ch] = []
+        else:
+            rx.amplitude_histogram = []
+
+    ism_engine.run(source, max_order=ism_order, verbose=False) # Suppress internal print
+    
+    # 2. Run Ray Tracing
+    # RayTracer also modifies receivers in place or returns hits.
+    # We used to call: paths, _ = tracer.run(...)
+    # But now we need to ensure we capture the hits/histograms from RayTracer too.
+    # The RayTracer.run method updates the receivers in `tracer.room`.
+    # Pass min_ism_order to avoid double counting early reflections handled by ISM
+    paths, _ = tracer.run(source, n_rays, max_hops, record_paths=record_paths, min_ism_order=ism_order)
+    
+    # 3. Collect Histograms
+    # We return the histogram data for each receiver so the main process can reconstruct the RIRs.
+    receiver_histograms = {}
+    for rx in ism_engine.room.receivers:
+        if isinstance(rx, AmbisonicReceiver):
+            receiver_histograms[rx.name] = {ch: list(rx.histograms[ch]) for ch in rx.channel_names}
+        else:
+            receiver_histograms[rx.name] = list(rx.amplitude_histogram)
+
+    return source.name, receiver_histograms, paths
 
 
 class HybridRenderer:
@@ -147,7 +177,7 @@ class HybridRenderer:
 
     def render(self, n_rays=10000, max_hops=50, rir_duration=2.0,
                verbose=True, record_paths=False, interference=False,
-               ism_order=3, show_path_plot=False):
+               ism_order=3, show_path_plot=False, parallel=True):
         """Runs the main hybrid rendering pipeline.
 
         This method executes the simulation for all sources with assigned
@@ -159,7 +189,7 @@ class HybridRenderer:
                        Defaults to 10000.
         :type n_rays: int, optional
         :param max_hops: The maximum number of reflections for each ray.
-                         Defaults to 50.
+                       Defaults to 50.
         :type max_hops: int, optional
         :param rir_duration: The duration of the generated RIRs in seconds.
                              Defaults to 2.0.
@@ -179,6 +209,9 @@ class HybridRenderer:
         :param show_path_plot: (Not implemented in this method) If `True`, a plot
                                of the ray paths would be displayed.
         :type show_path_plot: bool, optional
+        :param parallel: If `True`, process sources in parallel using ProcessPoolExecutor.
+                         Defaults to `True`.
+        :type parallel: bool, optional
         :return: A tuple containing a dictionary of receiver outputs (audio) and a
                  dictionary of the last computed RIR for each receiver. If
                  `record_paths` is `True`, the ray paths are also returned.
@@ -195,39 +228,60 @@ class HybridRenderer:
                 return receiver_outputs, all_paths
             return receiver_outputs
 
-        for source in valid_sources:
+        results_to_process = []
+
+        # 1. Run Simulations (Parallel or Serial)
+        if parallel and len(valid_sources) > 1:
             if verbose:
-                print(f"Simulating Source: {source.name} (ISM Order: {ism_order})")
+                print(f"Running Hybrid simulation in parallel for {len(valid_sources)} sources...")
+            
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                futures = {
+                    executor.submit(
+                        _run_hybrid_task,
+                        self.ism_engine,
+                        self._tracer,
+                        s, ism_order, n_rays, max_hops, record_paths, verbose
+                    ): s for s in valid_sources
+                }
+                
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        res_source_name, res_histograms, res_paths = future.result()
+                        # Find the original source object by name
+                        original_source = next(s for s in valid_sources if s.name == res_source_name)
+                        results_to_process.append((original_source, res_histograms, res_paths))
+                    except Exception as e:
+                        print(f"Error processing source: {e}")
+                        import traceback
+                        traceback.print_exc()
+        else:
+            # Serial execution
+            for source in valid_sources:
+                res_source_name, res_histograms, res_paths = _run_hybrid_task(
+                    self.ism_engine, self._tracer, source, 
+                    ism_order, n_rays, max_hops, record_paths, verbose
+                )
+                results_to_process.append((source, res_histograms, res_paths))
+
+        # 2. Process Results (Generate RIRs & Convolve)
+        for source, histograms, paths in results_to_process:
+            if record_paths and paths:
+                all_paths.update(paths)
 
             source_audio = self.source_audios[source]
             gain = self.source_gains[source]
 
-            # Reset histograms
             for rx in self.room.receivers:
-                if isinstance(rx, AmbisonicReceiver):
-                    for ch in rx.histograms:
-                        rx.histograms[ch] = []
-                else:
-                    rx.amplitude_histogram = []
-
-            # 1. ISM for early reflections
-            self.ism_engine.run(source, max_order=ism_order)
-
-            # 2. Ray Tracing for late reverberation
-            paths = self._tracer.run(source, n_rays, max_hops, record_paths=record_paths)
-            if record_paths and paths:
-                all_paths.update(paths)
-
-            # 3. Combine Histograms & Generate RIRs
-            for rx in self.room.receivers:
-                # Histograms are now combined on the receiver objects
+                rx_hist_data = histograms.get(rx.name)
+                
                 if isinstance(rx, AmbisonicReceiver):
                     channel_rirs = []
                     processed_channels = []
 
                     # Generate RIRs for all configured channels
                     for ch_name in rx.channel_names:
-                        hist = rx.histograms[ch_name]
+                        hist = rx_hist_data.get(ch_name, [])
                         rir_ch = generate_rir(
                             hist, self.fs, rir_duration, not interference
                         )
@@ -246,7 +300,8 @@ class HybridRenderer:
                     processed = np.stack(padded_channels, axis=1)
 
                 else:
-                    rir = generate_rir(rx.amplitude_histogram, self.fs, rir_duration, not interference)
+                    hist = rx_hist_data if rx_hist_data is not None else []
+                    rir = generate_rir(hist, self.fs, rir_duration, not interference)
                     processed = fftconvolve(source_audio * gain, rir, mode='full')
                     # Store as list for consistency if needed, but last_rirs expects array
                     # Processed is 1D array here

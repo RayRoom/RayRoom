@@ -45,7 +45,7 @@ class DemoRoom(Entry):
             mic = objects.AmbisonicReceiver(
                 name="AmbiMic",
                 position=mic_pos,
-                radius=0.02,
+                radius=0.15,
                 config=self.ambisonic_order
             )
         else:

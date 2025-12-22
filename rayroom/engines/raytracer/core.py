@@ -61,18 +61,20 @@ class RayTracer:
                               reflections up to this order. -1 to disable. Defaults to -1.
         :type min_ism_order: int
 
-        :return: Dictionary mapping source names to lists of ray paths if record_paths is True, else None.
-        :rtype: dict or None
+        :return: Tuple (paths, hits).
+                 paths: Dictionary mapping source names to lists of ray paths if record_paths is True, else None.
+                 hits: List of dictionaries containing hit info {receiver, time, energy, direction}
+        :rtype: tuple
         """
         if n_rays <= 0:
-            return {} if record_paths else None
+            return ({} if record_paths else None), []
 
         print(f"RayTracer starting for source: {source.name}")
-        paths = self._trace_source(source, n_rays, max_hops, energy_threshold, record_paths, min_ism_order)
+        paths, hits = self._trace_source(source, n_rays, max_hops, energy_threshold, record_paths, min_ism_order)
 
         if record_paths:
-            return {source.name: paths}
-        return None
+            return {source.name: paths}, hits
+        return None, hits
 
     def _trace_source(self, source, n_rays, max_hops, energy_threshold, record_paths=False, min_ism_order=-1):
         # Generate rays
@@ -122,8 +124,10 @@ class RayTracer:
             initial_energies = np.full(n_rays, base_energy)
 
         collected_paths = []
+        receiver_hits = [] # List to store hits returned by single ray trace
+        
         for i in tqdm(range(n_rays)):
-            path = self._trace_single_ray(
+            path, hits = self._trace_single_ray(
                 source.position,
                 directions[i],
                 initial_energies[i],
@@ -134,8 +138,32 @@ class RayTracer:
             )
             if path:
                 collected_paths.append(path)
+            if hits:
+                receiver_hits.extend(hits)
 
-        return collected_paths if record_paths else None
+        # In parallel mode, we rely on receiver_hits. In serial mode, the receivers are updated in-place.
+        # But to be safe and cleaner, we should return hits.
+        # However, `run` currently returns only paths.
+        # We need to change `run` to return hits too if we want to use them.
+        return collected_paths if record_paths else None, receiver_hits
+
+    def run(self, source, n_rays=10000, max_hops=50, energy_threshold=1e-6, record_paths=False, min_ism_order=-1):
+        """
+        Run the acoustic simulation for a single source.
+        ...
+        :return: Tuple (paths, hits).
+                 paths: Dictionary mapping source names to lists of ray paths if record_paths is True, else None.
+                 hits: List of dictionaries containing hit info {receiver, time, energy, direction}
+        """
+        if n_rays <= 0:
+            return ({} if record_paths else None), []
+
+        print(f"RayTracer starting for source: {source.name}")
+        paths, hits = self._trace_source(source, n_rays, max_hops, energy_threshold, record_paths, min_ism_order)
+
+        if record_paths:
+            return {source.name: paths}, hits
+        return None, hits
 
     def _trace_single_ray(
         self,
@@ -158,8 +186,9 @@ class RayTracer:
         if current_energy < energy_threshold or not np.isfinite(current_energy):
             if not np.isfinite(current_energy):
                 print(f"DEBUG: Invalid energy detected: {current_energy}. Stopping ray.")
-            return None
+            return None, []
 
+        hit_results = []
         for hop in range(max_hops):
             if np.sum(current_energy) < energy_threshold:
                 break
@@ -241,10 +270,28 @@ class RayTracer:
                         if should_record:
                             dist = total_dist + t_rx
                             time = dist / C_SOUND
+                            # Instead of recording to receiver immediately, we store the hit
+                            # The receiver object might be shared or copied in parallel execution
+                            # so we rely on the returned structure.
+                            # However, to maintain backward compatibility with non-parallel calls,
+                            # we can still record if needed, OR we change the architecture to
+                            # return hits and let the renderer handle it.
+                            # For the parallel refactor, we will make this function return hits.
+                            
+                            # Storing hit info: (receiver_name, time, energy, direction)
+                            hit_info = {
+                                'receiver_name': receiver.name,
+                                'time': time,
+                                'energy': current_energy,
+                                'direction': ray_dir
+                            }
+                            hit_results.append(hit_info)
+                            
                             if isinstance(receiver, AmbisonicReceiver):
                                 receiver.record(time, current_energy, ray_dir)
                             else:
                                 receiver.record(time, current_energy)
+
 
             # 3. Handle Wall Hit
             if hit_obj is None:
@@ -309,4 +356,4 @@ class RayTracer:
 
                 ray_origin = hit_point + hit_normal * 1e-3
 
-        return ray_path if record_paths and ray_path else None
+        return (ray_path if record_paths and ray_path else None), hit_results

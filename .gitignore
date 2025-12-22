@@ -48,3 +48,5 @@ examples/engines/run_all_demos.sh
 
 examples/engines/outputs_audios/*
 web/blueprint_pipeline/outputs/*
+examples/engines/outputs_audios-before-fix/
+outputs/

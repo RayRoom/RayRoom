@@ -139,6 +139,11 @@ class SpectralRenderer(HybridRenderer):
 
                     # Low-pass filter the resampled IR
                     filtered_ir = sosfiltfilt(sos_lp, resampled_ir)
+                    
+                    # Scale FDTD IR to match Geometric energy levels (approximate calibration)
+                    # FDTD native units (pressure) with amplitude 1.0 excitation are much larger
+                    # than Ray Tracing energy units. A factor of 0.01 brings them to comparable range.
+                    filtered_ir *= 0.01
 
                     # Convolve the filtered IR with the source audio to get the LF audio
                     processed_lf_audio = fftconvolve(src_audio * gain, filtered_ir, mode='full')

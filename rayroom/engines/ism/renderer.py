@@ -109,7 +109,8 @@ class ImageSourceRenderer:
             # Reset histograms
             for rx in self.room.receivers:
                 if isinstance(rx, AmbisonicReceiver):
-                    rx.w_histogram, rx.x_histogram, rx.y_histogram, rx.z_histogram = [], [], [], []
+                    for ch in rx.histograms:
+                        rx.histograms[ch] = []
                 else:
                     rx.amplitude_histogram = []
 
@@ -126,11 +127,10 @@ class ImageSourceRenderer:
                 # And here we do the same above. So histograms contain ONLY current source reflections.
                 
                 if isinstance(rx, AmbisonicReceiver):
-                    rir_w = generate_rir(rx.w_histogram, self.fs, rir_duration, not interference)
-                    rir_x = generate_rir(rx.x_histogram, self.fs, rir_duration, not interference)
-                    rir_y = generate_rir(rx.y_histogram, self.fs, rir_duration, not interference)
-                    rir_z = generate_rir(rx.z_histogram, self.fs, rir_duration, not interference)
-                    rirs = [rir_w, rir_x, rir_y, rir_z]
+                    rirs = []
+                    for ch in rx.channel_names:
+                        hist = rx.histograms[ch]
+                        rirs.append(generate_rir(hist, self.fs, rir_duration, not interference))
                     rir = np.stack(rirs, axis=1)
                 else:
                     rir = generate_rir(rx.amplitude_histogram, self.fs, rir_duration, not interference)
